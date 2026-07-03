@@ -1,0 +1,29 @@
+[
+  {
+    "id": "1",
+    "name": "2813238",
+    "description": "ADSO - Análisis y Desarrollo de Software",
+    "instructor": "Tecrar",
+    "room": "Lab 101",
+    "time": "08:00 - 12:00",
+    "color": "#10b981"
+  },
+  {
+    "id": "2",
+    "name": "2813239",
+    "description": "ADSO - Análisis y Desarrollo de Software",
+    "instructor": "Tecrar",
+    "room": "Lab 202",
+    "time": "14:00 - 18:00",
+    "color": "#0061ff"
+  },
+  {
+    "id": "4",
+    "name": "2813241",
+    "description": "Gestión de Proyectos",
+    "instructor": "Tecrar",
+    "room": "Sala 304",
+    "time": "18:00 - 22:00",
+    "color": "#ef4444"
+  }
+]

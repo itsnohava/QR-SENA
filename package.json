@@ -1,0 +1,21 @@
+{
+  "name": "asistqr-backend",
+  "version": "1.0.0",
+  "description": "Backend para AsistQRControl",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Asistencia - AsistQR</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #051414;
+            color: white;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+        #loading-overlay {
+            text-align: center;
+            display: block;
+        }
+        .card {
+            background: white;
+            color: #1e293b;
+            padding: 24px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden until data loaded */
+        }
+        .header { text-align: center; margin-bottom: 24px; }
+        .logo { font-size: 1.4rem; font-weight: 800; color: #051414; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        .badge { background: #f0fdfa; color: #0d9488; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
+        .search-box { position: relative; margin-bottom: 15px; width: 100%; box-sizing: border-box; }
+        .search-box input { width: 100%; padding: 12px 15px 12px 40px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 0.95rem; box-sizing: border-box; }
+        .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .list-container { border: 1px solid #e2e8f0; border-radius: 15px; max-height: 350px; overflow-y: auto; margin-bottom: 20px; background: #fff; }
+        .student-item { padding: 15px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left; }
+        .student-item:last-child { border-bottom: none; }
+        .student-item.selected { background: #ecfeff; border-left: 5px solid #00e5e5; }
+        .student-name { font-weight: 700; display: block; color: #1e293b; }
+        .student-id { font-size: 0.8rem; color: #64748b; }
+        .btn-submit { width: 100%; padding: 15px; background: #051414; color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; display: none; }
+        #success-view { display: none; text-align: center; }
+        .success-icon { width: 70px; height: 70px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <h2 style="color: #00e5e5;">AsistQR</h2>
+        <p id="loading-text">Cargando formulario de asistencia...</p>
+    </div>
+
+    <div class="card" id="main-card">
+        <div id="form-view">
+            <div class="header">
+                <div class="logo"><i data-lucide="shield-check"></i> AsistQR Control</div>
+                <span id="ficha-label" class="badge">Ficha: --</span>
+            </div>
+            <div class="search-box">
+                <i data-lucide="search" style="width: 18px;"></i>
+                <input type="text" id="searchInput" placeholder="Busca tu nombre...">
+            </div>
+            <div id="student-list" class="list-container"></div>
+            <button id="submitBtn" class="btn-submit">Confirmar Asistencia</button>
+        </div>
+
+        <div id="success-view">
+            <div class="success-icon"><i data-lucide="check-circle" style="width: 36px; height: 36px;"></i></div>
+            <h2 style="margin-bottom: 10px;">¡Listo!</h2>
+            <p id="success-msg" style="color: #64748b; margin-bottom: 25px;"></p>
+            <button onclick="location.reload()" class="btn-submit" style="display: block; background: #f1f5f9; color: #475569;">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const fichaId = urlParams.get('ficha');
+        let allStudents = [];
+        let selectedStudent = null;
+
+        async function init() {
+            try {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                
+                if (!fichaId) {
+                    document.getElementById('loading-text').innerHTML = '<span style="color:red">Error: Ficha no detectada en el QR.</span>';
+                    return;
+                }
+
+                document.getElementById('ficha-label').textContent = `Ficha: ${fichaId}`;
+                
+                const res = await fetch('/api/students');
+                if (!res.ok) throw new Error('No se pudo conectar con el servidor');
+                
+                const data = await res.json();
+                allStudents = data.filter(s => s.group === fichaId);
+                
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('main-card').style.display = 'block';
+                
+                renderList(allStudents);
+            } catch (err) {
+                document.getElementById('loading-text').innerHTML = '<span style="color:red">Error: ' + err.message + '</span><br><br><button onclick="location.reload()" style="padding:10px; border-radius:8px;">Reintentar</button>';
+            }
+        }
+
+        function renderList(students) {
+            const list = document.getElementById('student-list');
+            if (students.length === 0) {
+                list.innerHTML = '<div style="padding:30px; text-align:center; color:#64748b;">No hay aprendices registrados en esta ficha.</div>';
+                return;
+            }
+            list.innerHTML = students.map(s => `
+                <div class="student-item" onclick="selectMe(this, '${s.id}', '${s.name}')">
+                    <span class="student-name">${s.name}</span>
+                    <span class="student-id">Doc: ${s.id}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectMe(el, id, name) {
+            document.querySelectorAll('.student-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedStudent = { id, name };
+            const btn = document.getElementById('submitBtn');
+            btn.style.display = 'block';
+            btn.textContent = `Registrar a ${name.split(' ')[0]}`;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const filtered = allStudents.filter(s => s.name.toLowerCase().includes(val) || s.id.includes(val));
+            renderList(filtered);
+        });
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            if (!selectedStudent) return;
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Procesando...';
+
+            try {
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: selectedStudent.name,
+                        doc: selectedStudent.id,
+                        group: fichaId,
+                        status: 'Presente'
+                    })
+                });
+                if (res.ok) {
+                    document.getElementById('form-view').style.display = 'none';
+                    document.getElementById('success-view').style.display = 'block';
+                    document.getElementById('success-msg').textContent = `${selectedStudent.name}, tu asistencia ha sido guardada.`;
+                } else {
+                    throw new Error('Error al guardar');
+                }
+            } catch (err) {
+                alert('Error: No se pudo registrar. Intenta de nuevo.');
+                btn.disabled = false;
+                btn.textContent = 'Confirmar Asistencia';
+            }
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>

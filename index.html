@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsistQRControl - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Chart.js for Seguimiento -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="logo">
+            <i data-lucide="qr-code"></i>
+            <span>AsistQRControl</span>
+        </div>
+        <nav class="nav-links">
+            <li class="nav-item">
+                <a href="#" class="nav-link active">
+                    <i data-lucide="layout-dashboard"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="folder"></i>
+                    Mis Fichas
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="clipboard-check"></i>
+                    Toma de Asistencia
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="trending-up"></i>
+                    Seguimiento
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="bell"></i>
+                    Alertas
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="pie-chart"></i>
+                    Reportes
+                </a>
+            </li>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-link">
+                <i data-lucide="settings"></i>
+                Configuración
+            </a>
+        </div>
+    </aside>
+    <main class="main-container">
+        <header>
+            <div class="user-profile">
+                <img src="https://i.pravatar.cc/150?u=tecrar" alt="Tecrar" class="avatar">
+                <span style="font-weight: 600;">Tecrar</span>
+            </div>
+            <div class="header-actions">
+                <button class="notification-btn">
+                    <i data-lucide="bell"></i>
+                    <span class="notification-badge">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Sections -->
+        <div id="view-dashboard" class="content-view">
+            <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Dashboard Asistencia</h1>
+            <section class="dashboard-grid">
+                <div class="stat-card total">
+                    <div class="stat-icon"><i data-lucide="users"></i></div>
+                    <div class="stat-text">
+                        <div class="stat-label">Total Aprendices</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="stat-card presentes">
+                    <div class="stat-icon"><i data-lucide="user-check"></i></div>
+                    <div class="stat-text">
+                        <div class="stat-label">Presentes</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="stat-card tardes">
+                    <div class="stat-icon"><i data-lucide="clock"></i></div>
+                    <div class="stat-text">
+                        <div class="stat-label">Tardes</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="stat-card ausentes">
+                    <div class="stat-icon"><i data-lucide="user-x"></i></div>
+                    <div class="stat-text">
+                        <div class="stat-label">Ausentes</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="content-sections" style="margin-top: 24px;">
+                <!-- Alerts Section -->
+                <section class="section-card" style="grid-column: span 3;">
+                    <div class="section-title">Alertas Críticas de Inasistencia</div>
+                    <div class="alert-list" style="max-height: 250px; overflow-y: auto;">
+                        <p style="text-align:center; padding:10px; font-size:0.8rem; color:var(--text-muted);">Cargando alertas...</p>
+                    </div>
+                </section>
+            </div>
+
+            <div class="content-sections" style="margin-top: 24px;">
+                <!-- Real Time Table -->
+                <section class="section-card" style="grid-column: span 3;">
+                    <div class="section-title">
+                        Últimos Registros de Asistencia
+                        <button id="btnActualizarDash" style="padding: 4px 12px; font-size: 0.75rem; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                            <i data-lucide="refresh-cw" style="width: 12px; vertical-align: middle; margin-right: 4px;"></i>
+                            Actualizar
+                        </button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Aprendiz</th>
+                                    <th>ID</th>
+                                    <th>Hora</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceList"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- New Class Modal -->
+        <div id="newClassModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 500px; text-align: left;">
+                <h3 style="margin-bottom: 20px;">Crear Nueva Ficha / Clase</h3>
+                <form id="newClassForm">
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Número de Ficha</label>
+                            <input type="text" id="className" placeholder="Ej: 2813238" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Programa / Descripción</label>
+                            <input type="text" id="classDesc" placeholder="Ej: ADSO" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-muted);">Instructor</label>
+                                <input type="text" id="classInstructor" placeholder="Nombre" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-muted);">Ambiente</label>
+                                <input type="text" id="classRoom" placeholder="Ej: Lab 101" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Horario</label>
+                            <input type="text" id="classTime" placeholder="Ej: 08:00 - 12:00" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 25px;">
+                        <button type="button" id="closeClassModal" class="btn-modal-secondary">Cancelar</button>
+                        <button type="submit" class="btn-modal-primary" style="background: var(--primary);">Guardar Ficha</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Absence Modal -->
+        <div id="absenceModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 500px;">
+                <div class="modal-icon" style="background: #fef3c7; color: #f59e0b;">
+                    <i data-lucide="user-x"></i>
+                </div>
+                <h3 id="absenceModalTitle">Gestionar Faltas</h3>
+                <p>Selecciona los estudiantes que no asistieron a la sesión.</p>
+                <div id="absenceListContainer" style="max-height: 300px; overflow-y: auto; margin: 20px 0; text-align: left; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px;"></div>
+                <div class="modal-actions">
+                    <button id="closeAbsenceModal" class="btn-modal-secondary">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Confirmation Modal -->
+        <div id="customModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box">
+                <div class="modal-icon"><i data-lucide="alert-triangle"></i></div>
+                <h3 id="modalTitle">¿Estás seguro?</h3>
+                <p id="modalMessage">Esta acción no se puede deshacer.</p>
+                <div class="modal-actions">
+                    <button id="modalCancel" class="btn-modal-secondary">Cancelar</button>
+                    <button id="modalConfirm" class="btn-modal-primary">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Modal -->
+        <div id="notificationModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 450px; padding: 30px;">
+                <div class="modal-icon" style="background: #fee2e2; color: #ef4444; margin-bottom: 20px;">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <h2 style="margin-bottom: 15px; font-size: 1.4rem; font-weight: 700; color: #1e293b;">Notificaciones de Asistencia</h2>
+                
+                <div id="notificationList" style="margin-bottom: 25px; max-height: 250px; overflow-y: auto; text-align: left;">
+                    <!-- Alerts will be injected here -->
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <button id="closeNotificationModal" class="btn-modal-secondary" style="padding: 12px;">Cancelar</button>
+                    <button id="clearAllAlerts" class="btn-modal-primary" style="background: #ef4444; padding: 12px;">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-fichas" class="content-view" style="display: none;">
+            <div id="fichasMain">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h1 style="font-size: 1.5rem; margin: 0;">Mis Fichas / Grupos</h1>
+                    <button class="btn-primary" id="nuevaClaseBtn">
+                        <i data-lucide="plus" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"></i>
+                        Nueva Clase
+                    </button>
+                </div>
+                <div id="fichasContainer" class="dashboard-grid"></div>
+            </div>
+            <div id="fichaDetail" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button onclick="showFichasMain()" class="notification-btn"><i data-lucide="arrow-left"></i></button>
+                        <h1 id="selectedFichaTitle" style="font-size: 1.5rem; margin: 0;">Estudiantes</h1>
+                    </div>
+                    <button class="btn-primary" id="addStudentBtn">
+                        <i data-lucide="user-plus" style="width: 16px; margin-right: 8px;"></i>
+                        Agregar Estudiante
+                    </button>
+                </div>
+                <div class="section-card">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>ID / Documento</th>
+                                <th>Nombre Completo</th>
+                                <th>Asistencia %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fichaStudentsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Student Modal -->
+        <div id="newStudentModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 400px; text-align: left;">
+                <h3 style="margin-bottom: 20px;">Agregar Nuevo Estudiante</h3>
+                <form id="newStudentForm">
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Nombre Completo</label>
+                            <input type="text" id="studentName" placeholder="Ej: Juan Pérez" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">ID / Documento</label>
+                            <input type="text" id="studentId" placeholder="Ej: 102543..." required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 25px;">
+                        <button type="button" id="closeStudentModal" class="btn-modal-secondary">Cancelar</button>
+                        <button type="submit" class="btn-modal-primary" style="background: #051414;">Guardar Aprendiz</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-toma-de-asistencia" class="content-view" style="display: none;">
+            <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Toma de Asistencia Digital</h1>
+            <div class="content-sections">
+                <!-- QR Section -->
+                <section class="section-card">
+                    <div class="section-title">Punto de Registro QR</div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 8px;">Seleccionar Ficha:</label>
+                        <select id="fichaSelectorToma" class="btn-primary" style="width: 100%; background: white; color: var(--sidebar-bg); border: 1px solid #e2e8f0; padding: 10px;">
+                            <option value="">Cargando fichas...</option>
+                        </select>
+                    </div>
+                    <div class="qr-container" id="qrContainerToma" style="display: none;">
+                        <div class="qr-box">
+                            <div id="qrcode-toma"></div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">URL Global (Opcional para usar con Datos):</label>
+                            <input type="text" id="publicUrlInput" placeholder="Ej: https://mi-clase.loca.lt" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.8rem; margin-bottom: 10px;">
+                        </div>
+                        <button class="btn-primary" id="regenerarQrBtnToma" style="width: 100%;">Actualizar QR</button>
+                        <p class="qr-info" id="qrFichaInfo">Ficha: --</p>
+                    </div>
+                    <div id="qrPlaceholderToma" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i data-lucide="qr-code" style="width: 48px; height: 48px; margin-bottom: 10px; opacity: 0.5;"></i>
+                        <p>Selecciona una ficha para generar el QR de asistencia</p>
+                    </div>
+                </section>
+
+                <!-- Table Section -->
+                <section class="section-card">
+                    <div class="section-title">Asistencias de la Sesión Actual</div>
+                    <div style="overflow-x: auto;">
+                        <table class="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Nombre</th>
+                                    <th>Documento</th>
+                                    <th>Hora</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceListToma"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <div id="view-seguimiento" class="content-view" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h1 style="font-size: 1.5rem; margin: 0;">Seguimiento de Asistencia</h1>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Filtrar por Ficha:</label>
+                    <select id="fichaSelectorSeguimiento" class="btn-primary" style="background: white; color: var(--sidebar-bg); border: 1px solid #e2e8f0; padding: 8px 15px; border-radius: 8px;">
+                        <option value="">Todas las Fichas</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Global Summary Chart (matching the image) -->
+            <div class="section-card" style="max-width: 500px; margin: 0 auto; height: 450px; display: flex; flex-direction: column; align-items: center;">
+                <div class="section-title" id="seguimientoChartTitle" style="margin-bottom: 20px; font-weight: bold; font-size: 1.2rem;">Resumen General</div>
+                <div style="flex: 1; width: 100%;">
+                    <canvas id="globalAttendanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-alertas" class="content-view" style="display: none;">
+            <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Gestión de Alertas</h1>
+            <div class="section-card" id="alertDetailContainer"></div>
+        </div>
+
+        <div id="view-reportes" class="content-view" style="display: none;">
+            <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Reportes y Exportación</h1>
+            <div class="section-card">
+                <p>Descarga el historial completo de asistencia en formato Excel o PDF.</p>
+                <div style="display: flex; gap: 16px; margin-top: 20px;">
+                    <button class="btn-primary" style="background: #10b981;">Exportar Excel</button>
+                    <button class="btn-primary" style="background: #ef4444;">Exportar PDF</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="main.js"></script>
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
