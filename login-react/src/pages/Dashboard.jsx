@@ -666,11 +666,6 @@ export default function Dashboard() {
                       Ficha activa: {fichaFilter}
                     </p>
                   </div>
-                ) : (
-                  <div id="qrPlaceholderToma" className="text-center py-10 text-slate-400">
-                    <QrCode size={48} className="mx-auto mb-2 opacity-25" />
-                    <p className="text-sm">Selecciona una ficha para generar el QR de asistencia</p>
-                  </div>
                 )}
               </section>
 
@@ -684,8 +679,8 @@ export default function Dashboard() {
                     <thead>
                       <tr>
                         <th className="w-12">#</th>
-                        <th>Nombre</th>
-                        <th>Documento</th>
+                        <th>Aprendiz</th>
+                        <th>ID</th>
                         <th>Hora</th>
                         <th>Estado</th>
                       </tr>
@@ -698,22 +693,24 @@ export default function Dashboard() {
                           </td>
                         </tr>
                       ) : (
-                        filteredAttendance.map((a, i) => (
-                          <tr key={`${a.doc}-${i}`}>
-                            <td>{i + 1}</td>
-                            <td className="font-semibold text-slate-700">{a.name}</td>
-                            <td className="text-slate-500">{a.doc}</td>
-                            <td className="text-slate-500">{a.time || '--:--'}</td>
-                            <td>
-                              <span 
-                                onClick={() => handleToggleStatus(a.doc, a.status)}
-                                className={`status-badge cursor-pointer select-none status-${a.status.toLowerCase()}`}
-                              >
-                                {a.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
+                        [...filteredAttendance]
+                          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                          .map((a, i) => (
+                            <tr key={`${a.doc}-${i}`}>
+                              <td>{filteredAttendance.length - i}</td>
+                              <td className="font-semibold text-slate-700">{a.name}</td>
+                              <td className="text-slate-500">{a.doc}</td>
+                              <td className="text-slate-500">{a.time || '--:--'}</td>
+                              <td>
+                                <span 
+                                  onClick={() => handleToggleStatus(a.doc, a.status)}
+                                  className={`status-badge cursor-pointer select-none status-${a.status.toLowerCase()}`}
+                                >
+                                  {a.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
                       )}
                     </tbody>
                   </table>

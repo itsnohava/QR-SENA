@@ -1,22 +1,36 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <script>
+        if (sessionStorage.getItem('sena_logged_in') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AsistQRControl - Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- QR Code Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Barcode Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <!-- Chart.js for Seguimiento -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ExcelJS for styling Excel exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <!-- FileSaver for browser download support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- jsPDF and AutoTable for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <aside class="sidebar">
-        <div class="logo">
-            <i data-lucide="qr-code"></i>
-            <span>AsistQRControl</span>
+        <div class="logo" style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; background: rgba(0, 153, 0, 0.08); border-radius: 12px; border: 1px solid rgba(0, 153, 0, 0.15); margin-bottom: 35px; box-shadow: 0 4px 12px rgba(0, 153, 0, 0.03);">
+            <img src="https://www.sena.edu.co/Style%20Library/alayout/images/logoSena.png?rev=40" alt="Logo SENA" width="60" height="60" style="flex-shrink: 0; object-fit: contain;">
+            <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 1.6rem; font-weight: 900; color: #009900; letter-spacing: 2px; line-height: 1.1; font-family: 'Outfit', sans-serif;">SENA</span>
+            </div>
         </div>
         <nav class="nav-links">
             <li class="nav-item">
@@ -25,7 +39,7 @@
                     Dashboard
                 </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="navMisFichas">
                 <a href="#" class="nav-link">
                     <i data-lucide="folder"></i>
                     Mis Fichas
@@ -55,24 +69,41 @@
                     Reportes
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i data-lucide="user"></i>
+                    Mi Perfil
+                </a>
+            </li>
         </nav>
         <div class="sidebar-footer">
-            <a href="#" class="nav-link">
-                <i data-lucide="settings"></i>
-                Configuración
+            <div class="sidebar-user-info" onclick="openProfileView()" style="cursor: pointer; position: relative; transition: background 0.2s; padding: 8px 12px; border-radius: 12px;" title="Haz clic para ver y editar tu perfil">
+                <img class="avatar" src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Avatar Usuario" style="width: 40px; height: 40px; border-radius: 50%; background: #dcfce7; padding: 4px; object-fit: contain; flex-shrink: 0; transition: all 0.2s;">
+                <div class="sidebar-user-details" style="flex: 1;">
+                    <span class="sidebar-user-name" id="sidebarUserName">Juan Pérez</span>
+                    <span class="sidebar-user-role" id="sidebarUserRole">INSTRUCTOR</span>
+                </div>
+                <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--text-muted); opacity: 0.7;"></i>
+            </div>
+            <a href="#" class="btn-logout" onclick="sessionStorage.clear(); window.location.href='login.html'; return false;">
+                <i data-lucide="log-out"></i>
+                Cerrar sesión
             </a>
         </div>
     </aside>
     <main class="main-container">
         <header>
-            <div class="user-profile">
-                <img src="https://i.pravatar.cc/150?u=tecrar" alt="Tecrar" class="avatar">
-                <span style="font-weight: 600;">Tecrar</span>
+            <div class="user-profile" onclick="openProfileView()" style="cursor: pointer;" title="Ver mi perfil">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Perfil Usuario" class="avatar" style="background: #dcfce7; padding: 4px; object-fit: contain;">
+                <span style="font-weight: 600;" id="headerUserName">Juan Pérez</span>
             </div>
             <div class="header-actions">
                 <button class="notification-btn">
                     <i data-lucide="bell"></i>
                     <span class="notification-badge">0</span>
+                </button>
+                <button onclick="sessionStorage.clear(); window.location.href='login.html';" title="Cerrar sesión" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; color: #ef4444; transition: background 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='none'">
+                    <i data-lucide="log-out" style="width: 20px; height: 20px;"></i>
                 </button>
             </div>
         </header>
@@ -80,6 +111,19 @@
         <!-- Dynamic Content Sections -->
         <div id="view-dashboard" class="content-view">
             <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Dashboard Asistencia</h1>
+            <!-- Info ficha activa -->
+            <div id="fichaActivaInfo" style="display:none; align-items:center; gap:12px; background:#f0fdf4; border:1.5px solid #009900; border-radius:12px; padding:10px 18px; margin-bottom:16px;">
+                <i data-lucide="folder-open" style="width:20px; height:20px; color:#009900; flex-shrink:0;"></i>
+                <div>
+                    <span style="font-size:0.75rem; color:#009900; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Ficha activa</span>
+                    <div style="font-weight:700; font-size:1rem; color:#0f172a;" id="fichaActivaNombre">—</div>
+                </div>
+                <div style="margin-left:auto; text-align:right;">
+                    <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase; letter-spacing:0.05em;">Total inscritos</span>
+                    <div style="font-weight:800; font-size:1.4rem; color:#009900;" id="fichaActivaTotal">—</div>
+                </div>
+            </div>
+
             <section class="dashboard-grid">
                 <div class="stat-card total">
                     <div class="stat-icon"><i data-lucide="users"></i></div>
@@ -111,6 +155,7 @@
                 </div>
             </section>
 
+
             <div class="content-sections" style="margin-top: 24px;">
                 <!-- Alerts Section -->
                 <section class="section-card" style="grid-column: span 3;">
@@ -123,13 +168,19 @@
 
             <div class="content-sections" style="margin-top: 24px;">
                 <!-- Real Time Table -->
-                <section class="section-card" style="grid-column: span 3;">
-                    <div class="section-title">
-                        Últimos Registros de Asistencia
-                        <button id="btnActualizarDash" style="padding: 4px 12px; font-size: 0.75rem; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
-                            <i data-lucide="refresh-cw" style="width: 12px; vertical-align: middle; margin-right: 4px;"></i>
-                            Actualizar
-                        </button>
+                <section class="section-card dashboard-table-card" style="grid-column: span 3;">
+                    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <span>Últimos Registros de Asistencia</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Filtrar por Ficha:</label>
+                            <select id="fichaSelectorDash" class="btn-primary" style="background: white; color: var(--text-muted); border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; outline: none; cursor: pointer;">
+                                <option value="">Todas las Fichas</option>
+                            </select>
+                            <button id="btnActualizarDash" style="padding: 6px 12px; font-size: 0.75rem; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 4px;">
+                                <i data-lucide="refresh-cw" style="width: 12px;"></i>
+                                Actualizar
+                            </button>
+                        </div>
                     </div>
                     <div style="overflow-x: auto;">
                         <table class="attendance-table">
@@ -137,7 +188,8 @@
                                 <tr>
                                     <th>#</th>
                                     <th>Aprendiz</th>
-                                    <th>ID</th>
+                                    <th>Tipo de Documento</th>
+                                    <th>Documento</th>
                                     <th>Hora</th>
                                     <th>Estado</th>
                                 </tr>
@@ -259,9 +311,11 @@
                     <table class="attendance-table">
                         <thead>
                             <tr>
+                                <th>Tipo de Documento</th>
                                 <th>ID / Documento</th>
                                 <th>Nombre Completo</th>
                                 <th>Asistencia %</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="fichaStudentsList"></tbody>
@@ -281,13 +335,117 @@
                             <input type="text" id="studentName" placeholder="Ej: Juan Pérez" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
                         </div>
                         <div>
-                            <label style="font-size: 0.8rem; color: var(--text-muted);">ID / Documento</label>
-                            <input type="text" id="studentId" placeholder="Ej: 102543..." required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Tipo de Documento</label>
+                            <select id="studentDocType" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-main); background: #fff;">
+                                <option value="" disabled selected>Seleccione...</option>
+                                <option value="CC">Cédula de Ciudadanía (CC)</option>
+                                <option value="TI">Tarjeta de Identidad (TI)</option>
+                                <option value="CE">Cédula de Extranjería (CE)</option>
+                                <option value="PPT">Permiso de Protección Temporal (PPT)</option>
+                                <option value="PEP">Permiso Especial de Permanencia (PEP)</option>
+                                <option value="NIT">NIT</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted);">Número de Documento</label>
+                            <input type="text" id="studentId" placeholder="Ej: 102543..." required
+                                inputmode="numeric"
+                                oninput="validateDocNumber(this)"
+                                style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; transition: border-color 0.2s, box-shadow 0.2s; outline: none;">
+                            <span id="studentIdError" style="display:none; font-size: 0.75rem; color: #ef4444; margin-top: 4px;">
+                                ⚠ Solo se permiten números
+                            </span>
                         </div>
                     </div>
                     <div class="modal-actions" style="margin-top: 25px;">
                         <button type="button" id="closeStudentModal" class="btn-modal-secondary">Cancelar</button>
-                        <button type="submit" class="btn-modal-primary" style="background: #051414;">Guardar Aprendiz</button>
+                        <button type="submit" class="btn-modal-primary" style="background: #051414; color: #ffffff;">Guardar Aprendiz</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Send Email Modal -->
+        <div id="sendEmailModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 500px; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                    <div class="modal-icon" style="background: rgba(0,153,0,0.12); color: #009900; margin: 0; width: 48px; height: 48px;">
+                        <i data-lucide="mail" style="width: 24px; height: 24px;"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem;">Enviar Notificación por Correo</h3>
+                        <span id="emailStudentSub" style="font-size: 0.8rem; color: var(--text-muted);">Notificar inasistencias al aprendiz</span>
+                    </div>
+                </div>
+
+                <form id="sendEmailForm">
+                    <input type="hidden" id="emailStudentId" value="">
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Correo del Aprendiz</label>
+                            <input type="email" id="emailStudentInput" required placeholder="correo@gmail.com, hotmail, yahoo o institucional" 
+                                   style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Asunto</label>
+                            <input type="text" id="emailSubjectInput" required 
+                                   style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Mensaje</label>
+                            <textarea id="emailBodyInput" rows="5" required 
+                                      style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 20px;">
+                        <button type="button" id="closeEmailModal" class="btn-modal-secondary">Cancelar</button>
+                        <button type="submit" class="btn-modal-primary" style="background: #009900; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i data-lucide="send" style="width: 16px; height: 16px;"></i> Enviar Correo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Profile Modal -->
+        <div id="editProfileModal" class="modal-overlay" style="display: none;">
+            <div class="modal-box" style="max-width: 420px; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                    <div class="modal-icon" style="background: rgba(0, 153, 0, 0.15); color: #009900; margin: 0; width: 48px; height: 48px;">
+                        <i data-lucide="user-cog" style="width: 24px; height: 24px;"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem;">Editar Perfil de Usuario</h3>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Actualiza tu información personal</span>
+                    </div>
+                </div>
+
+                <form id="editProfileForm">
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Nombre Completo</label>
+                            <input type="text" id="editProfileName" required placeholder="Ingresa tu nombre completo" 
+                                   style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Rol / Cargo</label>
+                            <select id="editProfileRole" required style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem; background: #fff;">
+                                <option value="INSTRUCTOR">INSTRUCTOR</option>
+                                <option value="COORDINADOR">COORDINADOR</option>
+                                <option value="CONTRATISTA">CONTRATISTA</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Correo / Usuario</label>
+                            <input type="text" id="editProfileUser" required placeholder="correo@ejemplo.com" 
+                                   style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 25px;">
+                        <button type="button" id="closeEditProfileModal" class="btn-modal-secondary">Cancelar</button>
+                        <button type="submit" class="btn-modal-primary" style="background: #009900; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> Guardar Cambios
+                        </button>
                     </div>
                 </form>
             </div>
@@ -295,30 +453,53 @@
 
         <div id="view-toma-de-asistencia" class="content-view" style="display: none;">
             <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Toma de Asistencia Digital</h1>
-            <div class="content-sections">
-                <!-- QR Section -->
+            <div class="content-sections" style="grid-template-columns: 1fr;">
+
+                <!-- Search Form Section -->
                 <section class="section-card">
-                    <div class="section-title">Punto de Registro QR</div>
-                    <div style="margin-bottom: 20px;">
-                        <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 8px;">Seleccionar Ficha:</label>
-                        <select id="fichaSelectorToma" class="btn-primary" style="width: 100%; background: white; color: var(--sidebar-bg); border: 1px solid #e2e8f0; padding: 10px;">
-                            <option value="">Cargando fichas...</option>
-                        </select>
+                    <div class="section-title">
+                        <i data-lucide="search" style="width: 18px; height: 18px; margin-right: 8px; color: var(--primary);"></i>
+                        Búsqueda de Aprendiz
                     </div>
-                    <div class="qr-container" id="qrContainerToma" style="display: none;">
-                        <div class="qr-box">
-                            <div id="qrcode-toma"></div>
+                    <form id="searchStudentForm" class="search-form" onsubmit="searchStudent(event)">
+                        <div class="search-form-grid">
+                            <div class="search-field">
+                                <label for="searchDocType">Tipo de Documento</label>
+                                <select id="searchDocType">
+                                    <option value="" disabled selected>Seleccione...</option>
+                                    <option value="CC">Cédula de Ciudadanía (CC)</option>
+                                    <option value="TI">Tarjeta de Identidad (TI)</option>
+                                    <option value="CE">Cédula de Extranjería (CE)</option>
+                                    <option value="PPT">Permiso de Protección Temporal (PPT)</option>
+                                    <option value="PEP">Permiso Especial de Permanencia (PEP)</option>
+                                    <option value="NIT">NIT</option>
+                                </select>
+                            </div>
+                            <div class="search-field">
+                                <label for="searchDocNumber">Número de Documento</label>
+                                <input type="text" id="searchDocNumber" placeholder="Ej: 1234567890" oninput="autoSearchByDoc()">
+                            </div>
+                            <div class="search-field">
+                                <label for="searchName">Nombre Completo</label>
+                                <input type="text" id="searchName" placeholder="Ej: Juan Pérez">
+                            </div>
+
+                            <div class="search-field search-field-btn">
+                                <button type="submit" class="btn-primary btn-search">
+                                    <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+                                    Buscar
+                                </button>
+                                <button type="button" class="btn-search-clear" onclick="clearSearchForm()">
+                                    <i data-lucide="x-circle" style="width: 16px; height: 16px;"></i>
+                                    Limpiar
+                                </button>
+                            </div>
                         </div>
-                        <div style="margin-top: 15px;">
-                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">URL Global (Opcional para usar con Datos):</label>
-                            <input type="text" id="publicUrlInput" placeholder="Ej: https://mi-clase.loca.lt" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.8rem; margin-bottom: 10px;">
-                        </div>
-                        <button class="btn-primary" id="regenerarQrBtnToma" style="width: 100%;">Actualizar QR</button>
-                        <p class="qr-info" id="qrFichaInfo">Ficha: --</p>
-                    </div>
-                    <div id="qrPlaceholderToma" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                        <i data-lucide="qr-code" style="width: 48px; height: 48px; margin-bottom: 10px; opacity: 0.5;"></i>
-                        <p>Selecciona una ficha para generar el QR de asistencia</p>
+                    </form>
+                    <!-- Search Results -->
+                    <div id="searchResults" style="display: none; margin-top: 20px;">
+                        <div class="section-title" style="font-size: 0.85rem; margin-bottom: 12px;">Resultados de Búsqueda</div>
+                        <div id="searchResultsList"></div>
                     </div>
                 </section>
 
@@ -330,7 +511,8 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Nombre</th>
+                                    <th>Aprendiz</th>
+                                    <th>Tipo de Documento</th>
                                     <th>Documento</th>
                                     <th>Hora</th>
                                     <th>Estado</th>
@@ -348,7 +530,7 @@
                 <h1 style="font-size: 1.5rem; margin: 0;">Seguimiento de Asistencia</h1>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <label style="font-size: 0.8rem; color: var(--text-muted);">Filtrar por Ficha:</label>
-                    <select id="fichaSelectorSeguimiento" class="btn-primary" style="background: white; color: var(--sidebar-bg); border: 1px solid #e2e8f0; padding: 8px 15px; border-radius: 8px;">
+                    <select id="fichaSelectorSeguimiento" class="btn-primary" style="background: white; color: var(--text-muted); border: 1px solid #e2e8f0; padding: 8px 15px; border-radius: 8px;">
                         <option value="">Todas las Fichas</option>
                     </select>
                 </div>
@@ -373,10 +555,105 @@
             <div class="section-card">
                 <p>Descarga el historial completo de asistencia en formato Excel o PDF.</p>
                 <div style="display: flex; gap: 16px; margin-top: 20px;">
-                    <button class="btn-primary" style="background: #10b981;">Exportar Excel</button>
-                    <button class="btn-primary" style="background: #ef4444;">Exportar PDF</button>
+                    <button class="btn-primary" style="background: #009900; display: flex; align-items: center; gap: 8px;" onclick="exportToExcel()">
+                        <i data-lucide="file-spreadsheet" style="width: 18px; height: 18px;"></i> Exportar Excel
+                    </button>
+                    <button class="btn-primary" style="background: #ef4444; display: flex; align-items: center; gap: 8px;" onclick="exportToPDF()">
+                        <i data-lucide="file-text" style="width: 18px; height: 18px;"></i> Exportar PDF
+                    </button>
                 </div>
             </div>
+        </div>
+
+        <div id="view-perfil" class="content-view" style="display: none;">
+            <h1 style="font-size: 1.5rem; margin-bottom: 24px;">Mi Perfil de Usuario</h1>
+            
+            <div class="content-sections" style="grid-template-columns: 1fr 2fr; gap: 24px;">
+                <!-- Left Profile Summary Card -->
+                <section class="section-card" style="text-align: center; padding: 32px 24px;">
+                    <div style="position: relative; display: inline-block; margin-bottom: 16px;">
+                        <img id="profileAvatarImg" src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Avatar Perfil" style="width: 110px; height: 110px; border-radius: 50%; border: 4px solid #009900; object-fit: contain; background: #dcfce7; padding: 10px; box-shadow: 0 10px 20px rgba(0, 153, 0, 0.15); cursor: pointer;" onclick="document.getElementById('avatarFileInput').click()" title="Haz clic para cambiar tu foto">
+                        
+                        <!-- Hidden file input -->
+                        <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" onchange="changeProfileAvatar(event)">
+                        
+                        <!-- Camera button overlay -->
+                        <button type="button" onclick="document.getElementById('avatarFileInput').click()" title="Cambiar foto de perfil"
+                            style="position: absolute; bottom: 2px; right: 2px; background: #009900; color: white; width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.2);"
+                            onmouseover="this.style.background='#007700'" onmouseout="this.style.background='#009900'">
+                            <i data-lucide="camera" style="width: 15px; height: 15px;"></i>
+                        </button>
+                    </div>
+                    <h2 id="profileCardName" style="font-size: 1.3rem; margin-bottom: 4px; color: var(--text-main);">Juan Pérez</h2>
+                    <span id="profileCardRole" style="display: inline-block; font-size: 0.75rem; font-weight: 700; background: rgba(0, 153, 0, 0.1); color: #009900; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; margin-bottom: 20px;">INSTRUCTOR</span>
+                    
+
+
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; text-align: left; display: grid; gap: 12px; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">Estado Cuenta:</span>
+                            <span style="color: #009900; font-weight: 600;">● Activa</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">Acceso SENA:</span>
+                            <span style="font-weight: 600; color: var(--text-main);">Autorizado</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">Sesión Actual:</span>
+                            <span style="font-weight: 600; color: var(--text-main);" id="profileCardSession">Activa</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Right Detailed Form Card -->
+                <section class="section-card">
+                    <div class="section-title" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Información Detallada del Perfil</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);" id="profileRoleBadgeInfo">Información de Instructor</span>
+                    </div>
+
+                    <form id="viewProfileForm" onsubmit="saveProfileFromView(event)">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Nombre Completo</label>
+                                <input type="text" id="viewProfileName" required style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Correo / Usuario Institucional</label>
+                                <input type="text" id="viewProfileUser" required style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Rol / Cargo Institucional</label>
+                                <select id="viewProfileRole" required onchange="updateProfileRoleFields(this.value)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.9rem; background: #fff;">
+                                    <option value="INSTRUCTOR">INSTRUCTOR</option>
+                                    <option value="COORDINADOR">COORDINADOR</option>
+                                    <option value="CONTRATISTA">CONTRATISTA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);" id="labelField1">Área Académica / Programa</label>
+                                <input type="text" id="viewField1" value="Análisis y Desarrollo de Software (ADSO)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.85rem;">
+                            </div>
+                            <div id="fichasFieldContainer">
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);" id="labelField2">Fichas / Alcance Asignado</label>
+                                <input type="text" id="viewField2" value="Ficha 3292060, Ficha 2558390" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; outline: none; font-size: 0.85rem;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Centro de Formación</label>
+                                <input type="text" id="viewField3" value="Centro Textil de Gestión Industrial - SENA" readonly style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: var(--text-muted); outline: none; font-size: 0.85rem;">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                            <button type="button" onclick="openProfileView()" class="btn-modal-secondary" style="padding: 10px 20px;">Cancelar</button>
+                            <button type="submit" class="btn-primary" style="background: #009900; padding: 10px 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
         </div>
     </main>
 

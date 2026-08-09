@@ -150,6 +150,7 @@
                     body: JSON.stringify({
                         name: selectedStudent.name,
                         doc: selectedStudent.id,
+                        docType: selectedStudent.docType || '',
                         group: fichaId,
                         status: 'Presente'
                     })

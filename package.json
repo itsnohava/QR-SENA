@@ -9,7 +9,9 @@
   "dependencies": {
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "jimp": "^0.16.1",
+    "nodemailer": "^9.0.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
