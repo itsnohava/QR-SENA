@@ -10,9 +10,11 @@ const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'attendance.json');
 const STUDENTS_FILE = path.join(__dirname, 'students.json');
 const CLASSES_FILE = path.join(__dirname, 'classes.json');
+const EVIDENCES_FILE = path.join(__dirname, 'evidences.json');
+const INSTRUCTORS_FILE = path.join(__dirname, 'instructors.json');
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' }));
 app.use(express.static(__dirname, {
     setHeaders: (res, path) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -22,9 +24,25 @@ app.use(express.static(__dirname, {
 }));
 
 // Initial database checks
-[DATA_FILE, STUDENTS_FILE, CLASSES_FILE].forEach(file => {
+[DATA_FILE, STUDENTS_FILE, CLASSES_FILE, EVIDENCES_FILE, INSTRUCTORS_FILE].forEach(file => {
     if (!fs.existsSync(file)) {
-        fs.writeFileSync(file, JSON.stringify([]));
+        if (file === INSTRUCTORS_FILE) {
+            const initialInstructors = [
+                {
+                    id: "1",
+                    name: "Juan Pérez",
+                    document: "1000000001",
+                    email: "OBSENA2026@gmail.com",
+                    password: "Sena123",
+                    fichas: "Ficha 3292060, Ficha 2558390",
+                    status: "Activo",
+                    createdAt: new Date().toLocaleDateString('es-CO')
+                }
+            ];
+            fs.writeFileSync(file, JSON.stringify(initialInstructors, null, 2));
+        } else {
+            fs.writeFileSync(file, JSON.stringify([]));
+        }
     }
 });
 
@@ -83,37 +101,220 @@ app.post('/api/classes', (req, res) => {
     res.status(201).json(newClass);
 });
 
+// Evidences Endpoints
+app.get('/api/evidences', (req, res) => {
+    try {
+        const data = JSON.parse(fs.readFileSync(EVIDENCES_FILE));
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Error al leer evidencias' });
+    }
+});
+
+app.post('/api/evidences', (req, res) => {
+    try {
+        const data = JSON.parse(fs.readFileSync(EVIDENCES_FILE));
+        const newEvidence = {
+            id: Date.now().toString(),
+            studentDoc: req.body.studentDoc || '',
+            studentName: req.body.studentName || 'Aprendiz',
+            group: req.body.group || '',
+            absenceDate: req.body.absenceDate || new Date().toLocaleDateString('es-CO'),
+            reason: req.body.reason || 'Sin especificar',
+            notes: req.body.notes || '',
+            fileName: req.body.fileName || '',
+            fileData: req.body.fileData || '',
+            status: 'En Revisión',
+            replyNotes: '',
+            createdAt: new Date().toLocaleString('es-CO')
+        };
+        data.unshift(newEvidence);
+        fs.writeFileSync(EVIDENCES_FILE, JSON.stringify(data, null, 2));
+        res.status(201).json({ success: true, evidence: newEvidence });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al guardar la evidencia' });
+    }
+});
+
+app.put('/api/evidences/:id', (req, res) => {
+    try {
+        let data = JSON.parse(fs.readFileSync(EVIDENCES_FILE));
+        let updated = false;
+        data.forEach(item => {
+            if (item.id === req.params.id) {
+                if (req.body.status) item.status = req.body.status;
+                if (req.body.replyNotes !== undefined) item.replyNotes = req.body.replyNotes;
+                updated = true;
+            }
+        });
+        if (updated) {
+            fs.writeFileSync(EVIDENCES_FILE, JSON.stringify(data, null, 2));
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Evidencia no encontrada' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: 'Error al actualizar la evidencia' });
+    }
+});
+
+// Instructors Endpoints
+app.get('/api/instructors', (req, res) => {
+    try {
+        const data = JSON.parse(fs.readFileSync(INSTRUCTORS_FILE));
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Error al leer instructores' });
+    }
+});
+
+app.post('/api/instructors', (req, res) => {
+    try {
+        const data = JSON.parse(fs.readFileSync(INSTRUCTORS_FILE));
+        const { name, document, email, password, fichas } = req.body;
+
+        if (!name || !email || !password) {
+            return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios.' });
+        }
+
+        // Verificar duplicados por documento o correo
+        const exists = data.some(i => 
+            (i.email && i.email.toLowerCase() === email.toLowerCase()) ||
+            (document && i.document === document)
+        );
+
+        if (exists) {
+            return res.status(400).json({ error: 'Ya existe un instructor registrado con este documento o correo.' });
+        }
+
+        const newInstructor = {
+            id: Date.now().toString(),
+            name: name,
+            document: document || '',
+            email: email,
+            password: password,
+            fichas: fichas || 'Todas las fichas',
+            status: 'Activo',
+            createdAt: new Date().toLocaleDateString('es-CO')
+        };
+
+        data.unshift(newInstructor);
+        fs.writeFileSync(INSTRUCTORS_FILE, JSON.stringify(data, null, 2));
+        res.status(201).json({ success: true, instructor: newInstructor });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al registrar el instructor' });
+    }
+});
+
+app.delete('/api/instructors/:id', (req, res) => {
+    try {
+        let data = JSON.parse(fs.readFileSync(INSTRUCTORS_FILE));
+        const initialLen = data.length;
+        data = data.filter(i => i.id !== req.params.id);
+        if (data.length === initialLen) {
+            return res.status(404).json({ error: 'Instructor no encontrado' });
+        }
+        fs.writeFileSync(INSTRUCTORS_FILE, JSON.stringify(data, null, 2));
+        res.json({ success: true, message: 'Instructor eliminado' });
+    } catch (err) {
+        res.status(500).json({ error: 'Error al eliminar instructor' });
+    }
+});
+
+
+
 app.put('/api/attendance/:doc', (req, res) => {
     let data = JSON.parse(fs.readFileSync(DATA_FILE));
     let updated = false;
     data.forEach(r => {
         if (r.doc === req.params.doc) {
-            // Update the status if provided, especially if it was Ausente
             if (req.body.status) r.status = req.body.status;
             if (req.body.time) r.time = req.body.time;
+            if (req.body.fecha) r.fecha = req.body.fecha;
+            if (req.body.timestamp) r.timestamp = req.body.timestamp;
             updated = true;
         }
     });
     
-    if (updated) {
+    if (!updated) {
+        let studentName = req.body.name || 'Aprendiz';
+        let studentGroup = req.body.group || '';
+        let studentDocType = req.body.docType || 'CC';
+
+        if (fs.existsSync(STUDENTS_FILE)) {
+            try {
+                const students = JSON.parse(fs.readFileSync(STUDENTS_FILE));
+                const st = students.find(s => s.id === req.params.doc);
+                if (st) {
+                    if (!req.body.name) studentName = st.name;
+                    if (!req.body.group) studentGroup = st.group;
+                    if (!req.body.docType) studentDocType = st.docType || 'CC';
+                }
+            } catch (_) {}
+        }
+
+        const now = new Date();
+        const time = req.body.time || now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const newRecord = {
+            name: studentName,
+            doc: req.params.doc,
+            docType: studentDocType,
+            group: studentGroup,
+            status: req.body.status || 'Presente',
+            time: time,
+            fecha: req.body.fecha || now.toLocaleDateString('es-CO'),
+            timestamp: req.body.timestamp || now.getTime()
+        };
+        data.unshift(newRecord);
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ error: 'Registro no encontrado' });
+        return res.json({ success: true, record: newRecord });
     }
+    
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    res.json({ success: true });
 });
 
 app.post('/api/attendance', (req, res) => {
     const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const time = req.body.time || now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const fecha = req.body.fecha || now.toLocaleDateString('es-CO');
+    const timestamp = req.body.timestamp || now.getTime();
+    
+    const data = JSON.parse(fs.readFileSync(DATA_FILE));
+    
+    const reqCleanDoc = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+    const reqGroup    = String(req.body.group || '').trim();
+
+    const existingIndex = data.findIndex(r => {
+        const rCleanDoc = String(r.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+        const rGroup    = String(r.group || '').trim();
+        if (reqGroup && rGroup) {
+            return rCleanDoc === reqCleanDoc && rGroup === reqGroup;
+        }
+        return rCleanDoc === reqCleanDoc;
+    });
+
+    if (existingIndex !== -1) {
+        data[existingIndex].status = req.body.status || 'Presente';
+        data[existingIndex].time = time;
+        data[existingIndex].fecha = fecha;
+        data[existingIndex].timestamp = timestamp;
+        if (req.body.group) data[existingIndex].group = req.body.group;
+        if (req.body.name) data[existingIndex].name = req.body.name;
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        return res.status(200).json({ message: 'Asistencia actualizada', record: data[existingIndex] });
+    }
     
     const newRecord = {
         ...req.body,
+        status: req.body.status || 'Presente',
         time: time,
-        timestamp: now.getTime()
+        fecha: fecha,
+        timestamp: timestamp
     };
     
-    const data = JSON.parse(fs.readFileSync(DATA_FILE));
     data.unshift(newRecord);
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
     
@@ -137,6 +338,29 @@ app.put('/api/students/:id/status', (req, res) => {
         res.status(404).json({ error: 'Estudiante no encontrado' });
     }
 });
+
+app.delete('/api/students/:id', (req, res) => {
+    try {
+        let students = JSON.parse(fs.readFileSync(STUDENTS_FILE));
+        const before = students.length;
+        students = students.filter(s => s.id !== req.params.id);
+        if (students.length === before) {
+            return res.status(404).json({ error: 'Estudiante no encontrado' });
+        }
+        fs.writeFileSync(STUDENTS_FILE, JSON.stringify(students, null, 2));
+
+        // Opcional: también eliminar registros de asistencia del estudiante
+        let attendance = JSON.parse(fs.readFileSync(DATA_FILE));
+        attendance = attendance.filter(a => String(a.doc).replace(/\D/g,'').replace(/^0+/,'') !== String(req.params.id).replace(/\D/g,'').replace(/^0+/,''));
+        fs.writeFileSync(DATA_FILE, JSON.stringify(attendance, null, 2));
+
+        res.json({ success: true, message: 'Estudiante eliminado correctamente' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al eliminar el estudiante' });
+    }
+});
+
 
 const EMAIL_LOGS_FILE = path.join(__dirname, 'email_logs.json');
 
@@ -203,6 +427,16 @@ app.post('/api/send-email', async (req, res) => {
 });
 
 // Endpoint to get server info (like IP)
+app.delete('/api/attendance/reset', (req, res) => {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
+        res.json({ success: true, message: 'Asistencias reiniciadas' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'No se pudo reiniciar la asistencia' });
+    }
+});
+
 app.get('/api/info', (req, res) => {
     res.json({ ip: getLocalIp(), port: PORT });
 });

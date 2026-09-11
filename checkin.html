@@ -6,9 +6,10 @@
     <title>Registro de Asistencia - AsistQR</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
         body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: #051414;
+            font-family: 'Outfit', sans-serif;
+            background: #041a04;
             color: white;
             margin: 0;
             display: flex;
@@ -32,25 +33,25 @@
             display: none; /* Hidden until data loaded */
         }
         .header { text-align: center; margin-bottom: 24px; }
-        .logo { font-size: 1.4rem; font-weight: 800; color: #051414; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
-        .badge { background: #f0fdfa; color: #0d9488; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
+        .logo { font-size: 1.4rem; font-weight: 800; color: #041a04; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        .badge { background: #f0fdf4; color: #009900; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
         .search-box { position: relative; margin-bottom: 15px; width: 100%; box-sizing: border-box; }
         .search-box input { width: 100%; padding: 12px 15px 12px 40px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 0.95rem; box-sizing: border-box; }
         .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
         .list-container { border: 1px solid #e2e8f0; border-radius: 15px; max-height: 350px; overflow-y: auto; margin-bottom: 20px; background: #fff; }
         .student-item { padding: 15px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left; }
         .student-item:last-child { border-bottom: none; }
-        .student-item.selected { background: #ecfeff; border-left: 5px solid #00e5e5; }
+        .student-item.selected { background: #f0fdf4; border-left: 5px solid #009900; }
         .student-name { font-weight: 700; display: block; color: #1e293b; }
         .student-id { font-size: 0.8rem; color: #64748b; }
-        .btn-submit { width: 100%; padding: 15px; background: #051414; color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; display: none; }
+        .btn-submit { width: 100%; padding: 15px; background: #009900; color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; display: none; font-family: 'Outfit', sans-serif; transition: background 0.3s; }
         #success-view { display: none; text-align: center; }
         .success-icon { width: 70px; height: 70px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
     </style>
 </head>
 <body>
     <div id="loading-overlay">
-        <h2 style="color: #00e5e5;">AsistQR</h2>
+        <h2 style="color: #00b33c;">AsistQR</h2>
         <p id="loading-text">Cargando formulario de asistencia...</p>
     </div>
 
@@ -93,11 +94,22 @@
 
                 document.getElementById('ficha-label').textContent = `Ficha: ${fichaId}`;
                 
-                const res = await fetch('/api/students');
-                if (!res.ok) throw new Error('No se pudo conectar con el servidor');
+                const [studRes, attRes] = await Promise.all([
+                    fetch('/api/students'),
+                    fetch('/api/attendance')
+                ]);
+                if (!studRes.ok) throw new Error('No se pudo conectar con el servidor');
                 
-                const data = await res.json();
-                allStudents = data.filter(s => s.group === fichaId);
+                const studentsData = await studRes.json();
+                const attendanceData = attRes.ok ? await attRes.json() : [];
+
+                const attMap = new Map();
+                attendanceData.forEach(a => { if (a.group === fichaId) attMap.set(a.doc, a.status); });
+
+                allStudents = studentsData.filter(s => s.group === fichaId && s.status !== 'Desertor').map(s => ({
+                    ...s,
+                    currentStatus: attMap.get(s.id) || 'Ausente'
+                }));
                 
                 document.getElementById('loading-overlay').style.display = 'none';
                 document.getElementById('main-card').style.display = 'block';
@@ -114,12 +126,23 @@
                 list.innerHTML = '<div style="padding:30px; text-align:center; color:#64748b;">No hay aprendices registrados en esta ficha.</div>';
                 return;
             }
-            list.innerHTML = students.map(s => `
-                <div class="student-item" onclick="selectMe(this, '${s.id}', '${s.name}')">
-                    <span class="student-name">${s.name}</span>
-                    <span class="student-id">Doc: ${s.id}</span>
-                </div>
-            `).join('');
+            list.innerHTML = students.map(s => {
+                const isPresent = s.currentStatus === 'Presente';
+                const badgeStyle = isPresent 
+                    ? 'background: #dcfce7; color: #16a34a;' 
+                    : (s.currentStatus === 'Tarde' ? 'background: #fef3c7; color: #d97706;' : 'background: #fee2e2; color: #dc2626;');
+                return `
+                    <div class="student-item" onclick="selectMe(this, '${s.id}', '${s.name.replace(/'/g, "\\'")}')">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span class="student-name">${s.name}</span>
+                                <span class="student-id">Doc: ${s.id}</span>
+                            </div>
+                            <span class="badge" style="${badgeStyle} font-size:0.75rem; padding: 4px 10px; border-radius:12px;">${s.currentStatus}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function selectMe(el, id, name) {

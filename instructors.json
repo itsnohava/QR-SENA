@@ -1,0 +1,12 @@
+[
+  {
+    "id": "1",
+    "name": "Juan Pérez",
+    "document": "1000000001",
+    "email": "OBSENA2026@gmail.com",
+    "password": "Sena123",
+    "fichas": "Ficha 3292060, Ficha 2558390",
+    "status": "Activo",
+    "createdAt": "7/9/2026"
+  }
+]

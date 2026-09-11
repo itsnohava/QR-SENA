@@ -52,7 +52,7 @@
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 420px;
+            max-width: 460px;
             padding: 20px;
         }
 
@@ -61,7 +61,7 @@
             background: #ffffff;
             border: 1px solid rgba(57, 255, 20, 0.6);
             border-radius: 24px;
-            padding: 45px 40px;
+            padding: 45px 30px;
             box-shadow: 0 0 15px rgba(57, 255, 20, 0.3), 
                         0 0 30px rgba(57, 255, 20, 0.15),
                         0 8px 40px rgba(0, 0, 0, 0.08);
@@ -313,11 +313,55 @@
             </div>
 
             <form id="loginForm">
+                <!-- Selector de Rol -->
                 <div class="form-group">
-                    <label>Usuario</label>
+                    <label>Tipo de usuario</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+
+                        <!-- Instructor -->
+                        <input type="radio" id="roleInstructorInput" name="userRole" value="instructor" style="display:none;" checked onchange="updateRoleStyle()">
+                        <label id="roleInstructor" for="roleInstructorInput" style="
+                            display: flex; flex-direction: column; align-items: center; justify-content: center;
+                            gap: 4px; padding: 10px 4px; border: 1.5px solid rgba(0,170,0,0.6);
+                            border-radius: 12px; background: #f8fdf8; cursor: pointer;
+                            transition: all 0.2s; font-size: 0.78rem; color: #334155; font-weight: 600;
+                            text-align: center; user-select: none;">
+                            <span style="font-size: 1.3rem;">🎓</span>
+                            Instructor
+                        </label>
+
+                        <!-- Coordinador -->
+                        <input type="radio" id="roleCoordinadorInput" name="userRole" value="coordinador" style="display:none;" onchange="updateRoleStyle()">
+                        <label id="roleCoordinador" for="roleCoordinadorInput" style="
+                            display: flex; flex-direction: column; align-items: center; justify-content: center;
+                            gap: 4px; padding: 10px 4px; border: 1.5px solid rgba(0,170,0,0.6);
+                            border-radius: 12px; background: #f8fdf8; cursor: pointer;
+                            transition: all 0.2s; font-size: 0.78rem; color: #334155; font-weight: 600;
+                            text-align: center; user-select: none;">
+                            <span style="font-size: 1.3rem;">📋</span>
+                            Coordinador
+                        </label>
+
+                        <!-- Aprendiz -->
+                        <input type="radio" id="roleAprendizInput" name="userRole" value="aprendiz" style="display:none;" onchange="updateRoleStyle()">
+                        <label id="roleAprendiz" for="roleAprendizInput" style="
+                            display: flex; flex-direction: column; align-items: center; justify-content: center;
+                            gap: 4px; padding: 10px 4px; border: 1.5px solid rgba(0,170,0,0.6);
+                            border-radius: 12px; background: #f8fdf8; cursor: pointer;
+                            transition: all 0.2s; font-size: 0.78rem; color: #334155; font-weight: 600;
+                            text-align: center; user-select: none;">
+                            <span style="font-size: 1.3rem;">🎒</span>
+                            Aprendiz
+                        </label>
+
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Usuario / Documento / Correo</label>
                     <div class="input-wrapper">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <input type="text" id="loginUser" placeholder="Ingresa tu usuario" required autocomplete="username">
+                        <input type="text" id="loginUser" placeholder="Ingresa tu usuario o documento" required autocomplete="username">
                     </div>
                 </div>
 
@@ -364,43 +408,117 @@
             window.location.href = 'index.html';
         }
 
+        function updateRoleStyle() {
+            const roles = ['Instructor', 'Coordinador', 'Aprendiz'];
+            const selected = document.querySelector('input[name="userRole"]:checked')?.value || 'instructor';
+
+            roles.forEach(r => {
+                const label = document.getElementById('role' + r);
+                if (!label) return;
+                const isSel = (selected === r.toLowerCase());
+                label.style.borderColor = isSel ? '#009900' : 'rgba(0,170,0,0.6)';
+                label.style.background   = isSel ? '#f0faf0' : '#f8fdf8';
+                label.style.boxShadow    = isSel ? '0 0 0 3px rgba(0,153,0,0.12)' : 'none';
+                label.style.color        = isSel ? '#009900' : '#334155';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', updateRoleStyle);
+
         function togglePass() {
             const input = document.getElementById('loginPass');
             const isPassword = input.type === 'password';
             input.type = isPassword ? 'text' : 'password';
-            // Cambiar el icono del ojo
             document.getElementById('eyeIcon').innerHTML = isPassword
                 ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
                 : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
         }
 
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = document.getElementById('loginUser').value.trim();
             const pass = document.getElementById('loginPass').value;
+            const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
 
-            // Cuentas del sistema
+            // Cuentas predeterminadas
             const accounts = [
-                { user: 'OBSENA2026@gmail.com',     pass: 'Sena123',   role: 'INSTRUCTOR',  name: 'Juan Pérez' },
-                { user: 'coordinador@sena.edu.co',  pass: 'Coord2026', role: 'COORDINADOR', name: 'Pedro Pony' }
+                { user: 'OBSENA2026@gmail.com',     pass: 'Sena123',     role: 'instructor',  name: 'Juan Pérez' },
+                { user: 'coordinador@sena.edu.co',  pass: 'Coord2026',   role: 'coordinador', name: 'Pedro Pony' },
+                { user: 'aprendiz@sena.edu.co',     pass: 'Aprendiz123', role: 'aprendiz',    name: 'Santiago Chaverra' }
             ];
 
-            const match = accounts.find(a =>
+            let match = accounts.find(a =>
                 a.user.toLowerCase() === user.toLowerCase() && a.pass === pass
             );
 
-            if (match) {
-                sessionStorage.setItem('sena_logged_in', 'true');
-                sessionStorage.setItem('sena_user', match.user);
-                sessionStorage.setItem('sena_role', match.role);
-                sessionStorage.setItem('sena_name', match.name);
-                window.location.href = 'index.html';
-            } else {
-                const err = document.getElementById('loginError');
+            // Búsqueda flexible para aprendices por documento o correo de estudiantes registrados
+            if (!match && selectedRole === 'aprendiz') {
+                if (pass === 'Aprendiz123' || pass === 'Sena123' || pass === '123456') {
+                    try {
+                        const res = await fetch('/api/students');
+                        if (res.ok) {
+                            const studentsData = await res.json();
+                            const stMatch = studentsData.find(s => 
+                                (s.email && s.email.toLowerCase() === user.toLowerCase()) || 
+                                s.id === user
+                            );
+                            if (stMatch) {
+                                match = {
+                                    user: stMatch.email || stMatch.id,
+                                    pass: pass,
+                                    role: 'aprendiz',
+                                    name: stMatch.name
+                                };
+                            }
+                        }
+                    } catch (_) {}
+                }
+            }
+
+            // Búsqueda para instructores registrados dinámicamente
+            if (!match && selectedRole === 'instructor') {
+                try {
+                    const res = await fetch('/api/instructors');
+                    if (res.ok) {
+                        const instructorsData = await res.json();
+                        const instMatch = instructorsData.find(i => 
+                            (i.email && i.email.toLowerCase() === user.toLowerCase()) || 
+                            (i.document && i.document === user)
+                        );
+                        if (instMatch && instMatch.password === pass) {
+                            match = {
+                                user: instMatch.email || instMatch.document,
+                                pass: pass,
+                                role: 'instructor',
+                                name: instMatch.name
+                            };
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            const err = document.getElementById('loginError');
+
+            if (!match) {
                 err.style.display = 'block';
                 err.textContent = 'Usuario o contraseña incorrectos. Verifica tus datos.';
                 setTimeout(() => { err.style.display = 'none'; }, 4000);
+                return;
             }
+
+            if (match.role !== selectedRole) {
+                err.style.display = 'block';
+                const roleLabels = { instructor: 'Instructor', coordinador: 'Coordinador', aprendiz: 'Aprendiz' };
+                err.textContent = `⛔ Acceso denegado. Esta cuenta no pertenece al rol de ${roleLabels[selectedRole] || selectedRole}.`;
+                setTimeout(() => { err.style.display = 'none'; }, 5000);
+                return;
+            }
+
+            sessionStorage.setItem('sena_logged_in', 'true');
+            sessionStorage.setItem('sena_user', match.user);
+            sessionStorage.setItem('sena_role', match.role.toUpperCase());
+            sessionStorage.setItem('sena_name', match.name);
+            window.location.href = 'index.html';
         });
     </script>
 

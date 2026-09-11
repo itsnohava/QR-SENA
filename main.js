@@ -19,16 +19,82 @@ function initUserProfile() {
     if (sidebarRole) sidebarRole.textContent = role;
     if (headerName)  headerName.textContent  = name;
 
-    // Ocultar "Mis Fichas" si el rol es Coordinador
+    // --- Visibilidad de ítems del menú por rol ---
+
+    // Dashboard: visible para Instructor y Coordinador, oculto para Aprendiz
+    const navDashboard = document.getElementById('navDashboard');
+    if (navDashboard) navDashboard.style.display = (role === 'APRENDIZ') ? 'none' : '';
+
+    // Mis Fichas: solo visible para Instructor
     const navMisFichas = document.getElementById('navMisFichas');
-    if (navMisFichas) {
-        navMisFichas.style.display = (role === 'COORDINADOR') ? 'none' : '';
+    if (navMisFichas) navMisFichas.style.display = (role === 'INSTRUCTOR') ? '' : 'none';
+
+    // Toma de Asistencia: solo visible para Instructor
+    const navTomaAsistencia = document.getElementById('navTomaAsistencia');
+    if (navTomaAsistencia) navTomaAsistencia.style.display = (role === 'INSTRUCTOR') ? '' : 'none';
+
+    // Seguimiento: visible para Instructor y Coordinador
+    const navSeguimiento = document.getElementById('navSeguimiento');
+    if (navSeguimiento) navSeguimiento.style.display = (role === 'APRENDIZ') ? 'none' : '';
+
+    // Alertas: visible para todos
+    const navAlertas = document.getElementById('navAlertas');
+    if (navAlertas) navAlertas.style.display = '';
+
+    // Reportes: visible para Instructor y Coordinador
+    const navReportes = document.getElementById('navReportes');
+    if (navReportes) navReportes.style.display = (role === 'APRENDIZ') ? 'none' : '';
+
+    // Gestión Instructores: solo visible para Coordinador
+    const navInstructores = document.getElementById('navInstructores');
+    if (navInstructores) navInstructores.style.display = (role === 'COORDINADOR') ? '' : 'none';
+
+    // Evidencias: visible para todos
+    const navEvidencias = document.getElementById('navEvidencias');
+    if (navEvidencias) navEvidencias.style.display = '';
+
+    // Mi Perfil: visible para todos
+    const navMiPerfil = document.getElementById('navMiPerfil');
+    if (navMiPerfil) navMiPerfil.style.display = '';
+
+    // --- Título tabla evidencias ---
+    const titleElem = document.getElementById('titleTablaEvidencias');
+    if (titleElem) {
+        titleElem.textContent = (role === 'APRENDIZ') 
+            ? 'Mis Evidencias Enviadas' 
+            : 'Evidencias Recibidas de Aprendices';
+    }
+
+    // --- Comportamiento especial por rol ---
+    if (role === 'APRENDIZ') {
+        // Aprendiz: mostrar el formulario de subida de evidencias
+        const cardForm = document.getElementById('cardFormEvidencia');
+        if (cardForm) cardForm.style.display = 'block';
+
+        // Navegar automáticamente a la vista de evidencias
+        document.querySelectorAll('.content-view').forEach(v => v.style.display = 'none');
+        const viewEvid = document.getElementById('view-evidencias');
+        if (viewEvid) viewEvid.style.display = 'block';
+
+        // Marcar nav activo en Evidencias
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        if (navEvidencias) {
+            const a = navEvidencias.querySelector('a');
+            if (a) a.classList.add('active');
+        }
+
+        renderEvidencias();
+    } else {
+        // Instructor / Coordinador: ocultar el formulario de envío (solo revisan)
+        const cardForm = document.getElementById('cardFormEvidencia');
+        if (cardForm) cardForm.style.display = 'none';
     }
 
     // Load saved avatar
     const savedAvatar = localStorage.getItem('sena_avatar');
     updateAllAvatars(savedAvatar);
 }
+
 
 function updateAllAvatars(src) {
     if (!src) {
@@ -194,34 +260,59 @@ document.getElementById('editProfileForm')?.addEventListener('submit', async (e)
 document.addEventListener('DOMContentLoaded', initUserProfile);
 initUserProfile();
 
+function _cleanDocId(val) {
+    if (!val) return '';
+    return String(val).replace(/\D/g, '').replace(/^0+/, '');
+}
+
 async function renderTable(fichaFilter = currentFichaFilter) {
     currentFichaFilter = fichaFilter;
     try {
-        const response = await fetch(`${API_BASE}/api/attendance`);
-        let history = await response.json();
-        if (fichaFilter) history = history.filter(h => h.group === fichaFilter);
+        const [attRes, studRes] = await Promise.all([
+            fetch(`${API_BASE}/api/attendance`),
+            fetch(`${API_BASE}/api/students`)
+        ]);
+        let history = attRes.ok ? await attRes.json() : [];
+        let allStudents = studRes.ok ? await studRes.json() : [];
+
+        let activeStudents = allStudents.filter(s => s.status !== 'Desertor');
+
+        if (fichaFilter) {
+            history = history.filter(h => h.group === fichaFilter);
+            activeStudents = activeStudents.filter(s => s.group === fichaFilter);
+        }
+
+        // Ordenar registros por marca de tiempo más reciente primero
+        const data = [...history].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
         const updateList = (id) => {
             const list = document.getElementById(id);
             if (!list) return;
-            
-            // Sort by timestamp descending so the newest records are at the top for all lists
-            const data = (history.length > 0 ? [...history].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : studentsMock);
-            const total = data.length;
+
+            if (data.length === 0) {
+                list.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">
+                            Esperando registros de asistencia...
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
 
             list.innerHTML = data.map((s, index) => {
-                const rowNum = total - index;
+                const rowNum = data.length - index;
                 return `
                     <tr>
                         <td>${rowNum}</td>
                         <td>${s.name}</td>
-                        <td>${s.docType || '--'}</td>
+                        <td>${s.docType || 'CC'}</td>
                         <td>${s.doc}</td>
                         <td>${s.time || '--:--'}</td>
                         <td>
-                            <span onclick="toggleStatus('${s.doc}', '${s.status}')" 
+                            <span onclick="toggleStatus('${s.doc}', '${s.status}', '${encodeURIComponent(s.name)}', '${s.group}', '${s.docType}')" 
                                   class="status-badge ${s.status === 'Presente' ? 'status-presente' : (s.status === 'Tarde' ? 'status-tarde' : (s.status === 'Ausente' ? 'status-ausente' : 'status-justificado'))}" 
-                                  style="cursor: pointer;">
+                                  style="cursor: pointer;" title="Haz clic para cambiar estado">
                                 ${s.status}
                             </span>
                         </td>
@@ -229,38 +320,25 @@ async function renderTable(fichaFilter = currentFichaFilter) {
                 `;
             }).join('');
 
-            // Remove pagination controls if they exist
             const paginationId = id === 'attendanceList' ? 'paginationDash' : 'paginationToma';
             const pagContainer = document.getElementById(paginationId);
-            if (pagContainer) {
-                pagContainer.innerHTML = '';
-            }
+            if (pagContainer) pagContainer.innerHTML = '';
         };
+
         updateList('attendanceList');
         updateList('attendanceListToma');
-        
+
+        // Actualizar tarjetas de estadísticas
         const totalStat   = document.querySelector('.stat-card.total .stat-value');
         const presentStat = document.querySelector('.stat-card.presentes .stat-value');
         const lateStat    = document.querySelector('.stat-card.tardes .stat-value');
         const absentStat  = document.querySelector('.stat-card.ausentes .stat-value');
-        if (totalStat) {
-            // Total = aprendices inscritos en la ficha (desde students.json)
-            try {
-                const studRes = await fetch(`${API_BASE}/api/students`);
-                let allStudents = await studRes.json();
-                if (fichaFilter) {
-                    allStudents = allStudents.filter(s => s.group === fichaFilter && s.status !== 'Desertor');
-                } else {
-                    allStudents = allStudents.filter(s => s.status !== 'Desertor');
-                }
-                totalStat.textContent = allStudents.length;
-            } catch (_) {
-                totalStat.textContent = '—';
-            }
-            presentStat.textContent = history.filter(s => s.status === 'Presente').length;
-            lateStat.textContent    = history.filter(s => s.status === 'Tarde').length;
-            absentStat.textContent  = history.filter(s => s.status === 'Ausente').length;
-        }
+
+        if (totalStat) totalStat.textContent   = history.length;
+        if (presentStat) presentStat.textContent = history.filter(s => s.status === 'Presente').length;
+        if (lateStat) lateStat.textContent    = history.filter(s => s.status === 'Tarde').length;
+        if (absentStat) absentStat.textContent  = history.filter(s => s.status === 'Ausente').length;
+
         renderAlerts(history, fichaFilter);
     } catch (err) { console.error(err); }
 }
@@ -273,17 +351,20 @@ function _getNow() {
     return { fecha, hora, timestamp: now.getTime() };
 }
 
-async function toggleStatus(doc, currentStatus) {
-    if (doc === '---') return;
-    let newStatus = currentStatus === 'Presente' ? 'Tarde' : (currentStatus === 'Tarde' ? 'Ausente' : 'Presente');
+async function toggleStatus(doc, currentStatus, encodedName = '', group = '', docType = '') {
+    if (!doc || doc === '---') return;
+    const name = encodedName ? decodeURIComponent(encodedName) : '';
+    let newStatus = (currentStatus === 'Ausente' || !currentStatus) ? 'Presente' : (currentStatus === 'Presente' ? 'Tarde' : 'Ausente');
     const { fecha, hora, timestamp } = _getNow();
     try {
-        const response = await fetch(`${API_BASE}/api/attendance/${doc}`, {
-            method: 'PUT',
+        const response = await fetch(`${API_BASE}/api/attendance`, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus, time: hora, fecha, timestamp })
+            body: JSON.stringify({ doc: String(doc).trim(), status: newStatus, time: hora, fecha, timestamp, name, group, docType })
         });
-        if (response.ok) renderTable();
+        if (response.ok) {
+            await renderTable();
+        }
     } catch (err) { console.error(err); }
 }
 
@@ -499,6 +580,8 @@ document.querySelectorAll('.nav-link').forEach(link => {
         else if (text.includes('seguimiento')) viewId = 'view-seguimiento';
         else if (text.includes('alertas')) viewId = 'view-alertas';
         else if (text.includes('reportes')) viewId = 'view-reportes';
+        else if (text.includes('instructor')) viewId = 'view-instructores';
+        else if (text.includes('evidencia')) viewId = 'view-evidencias';
         else if (text.includes('perfil')) viewId = 'view-perfil';
         const targetView = document.getElementById(viewId);
         if (targetView) {
@@ -512,13 +595,17 @@ document.querySelectorAll('.nav-link').forEach(link => {
             if (viewId === 'view-alertas') renderAlertas();
             if (viewId === 'view-dashboard') updateDashboard();
             if (viewId === 'view-seguimiento') renderSeguimientoChart();
+            if (viewId === 'view-instructores') renderInstructores();
+            if (viewId === 'view-evidencias') renderEvidencias();
             if (viewId === 'view-perfil') openProfileView();
         }
     });
 });
 
 function updateProfileRoleFields(role) {
-    const isCoord = (role || '').toUpperCase() === 'COORDINADOR';
+    const roleUpper = (role || '').toUpperCase();
+    const isCoord = roleUpper === 'COORDINADOR';
+    const isAprendiz = roleUpper === 'APRENDIZ';
     
     const badgeInfo = document.getElementById('profileRoleBadgeInfo');
     const label1 = document.getElementById('labelField1');
@@ -533,13 +620,24 @@ function updateProfileRoleFields(role) {
     const metricsContainer = document.getElementById('profileMetricsContainer');
     const fichasContainer = document.getElementById('fichasFieldContainer');
 
-    if (isCoord) {
+    if (isAprendiz) {
+        if (badgeInfo) badgeInfo.textContent = 'Información de Aprendiz SENA';
+        if (label1) label1.textContent = 'Programa de Formación';
+        if (field1) field1.value = 'Análisis y Desarrollo de Software (ADSO)';
+        if (label2) label2.textContent = 'Ficha de Formación';
+        if (field2) field2.value = 'Ficha 3292060';
+        if (m1) m1.textContent = '3292060';
+        if (m1Label) m1Label.textContent = 'Mi Ficha';
+        if (m2) m2.textContent = 'En Formación';
+        if (m2Label) m2Label.textContent = 'Estado Aprendiz';
+        if (metricsContainer) metricsContainer.style.display = 'grid';
+        if (fichasContainer) fichasContainer.style.display = 'block';
+    } else if (isCoord) {
         if (badgeInfo) badgeInfo.textContent = 'Información de Coordinación Académica';
         if (label1) label1.textContent = 'Coordinación / Dependencia';
         if (field1) field1.value = 'Coordinación Académica de Teleinformática';
         if (label2) label2.textContent = 'Alcance / Supervisión';
         if (field2) field2.value = 'Supervisión General de Fichas e Instructores';
-        // Ocultar fichas para coordinador
         if (metricsContainer) metricsContainer.style.display = 'none';
         if (fichasContainer) fichasContainer.style.display = 'none';
     } else {
@@ -552,7 +650,6 @@ function updateProfileRoleFields(role) {
         if (m1Label) m1Label.textContent = 'Fichas Asignadas';
         if (m2) m2.textContent = 'Activo';
         if (m2Label) m2Label.textContent = 'Estado Instructor';
-        // Mostrar fichas para instructor
         if (metricsContainer) metricsContainer.style.display = 'grid';
         if (fichasContainer) fichasContainer.style.display = 'block';
     }
@@ -1029,7 +1126,7 @@ async function updateDashboard() {
 
         
         const stats = {
-            total: students.length,
+            total: attendance.length,
             presentes: attendance.filter(a => a.status === 'Presente').length,
             tardes: attendance.filter(a => a.status === 'Tarde').length,
             ausentes: attendance.filter(a => a.status === 'Ausente').length
@@ -1085,12 +1182,20 @@ async function openFicha(fichaName) {
                     </div>
                 </td>
                 <td>
-                    <button class="btn-primary" 
-                            style="background: ${isDesertor ? '#009900' : '#d97706'}; color: #ffffff; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; border: none; font-weight: 600;" 
-                            onclick="toggleStudentDesertor('${s.id}', '${s.status || 'Activo'}', '${fichaName}')">
-                        <i data-lucide="${isDesertor ? 'user-check' : 'user-x'}" style="width: 14px; height: 14px;"></i>
-                        ${isDesertor ? 'Reincorporar' : 'Desertar'}
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn-primary" 
+                                style="background: ${isDesertor ? '#009900' : '#d97706'}; color: #ffffff; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; border: none; font-weight: 600; cursor: pointer;" 
+                                onclick="toggleStudentDesertor('${s.id}', '${s.status || 'Activo'}', '${fichaName}')">
+                            <i data-lucide="${isDesertor ? 'user-check' : 'user-x'}" style="width: 14px; height: 14px;"></i>
+                            ${isDesertor ? 'Reincorporar' : 'Desertar'}
+                        </button>
+                        <button class="btn-primary" 
+                                style="background: #ef4444; color: #ffffff; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; border: none; font-weight: 600; cursor: pointer;" 
+                                onclick="deleteStudent('${s.id}', '${s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${fichaName}')">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            Eliminar
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -1131,6 +1236,36 @@ async function toggleStudentDesertor(id, currentStatus, fichaName) {
             openFicha(fichaName);
         } else {
             alert('Error al actualizar el estado del aprendiz.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión.');
+    }
+}
+
+async function deleteStudent(id, name, fichaName) {
+    const confirmed = await showConfirmModal({
+        title: 'Eliminar Aprendiz',
+        message: `¿Estás seguro de <strong>eliminar permanentemente</strong> a <strong>${name}</strong> del sistema? Esta acción también borrará sus registros de asistencia y no se puede deshacer.`,
+        confirmText: 'Sí, Eliminar',
+        cancelText: 'Cancelar',
+        confirmBg: '#ef4444',
+        iconName: 'trash-2',
+        iconBg: 'rgba(239, 68, 68, 0.12)',
+        iconColor: '#ef4444'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/students/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            openFicha(fichaName);
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error al eliminar el aprendiz.');
         }
     } catch (err) {
         console.error(err);
@@ -1185,36 +1320,20 @@ async function _getAllStudents() {
 
 function autoSearchByDoc() {
     clearTimeout(_autoSearchTimer);
-    const docNumber = document.getElementById('searchDocNumber').value.trim();
+    const input = document.getElementById('searchDocNumber');
+    if (!input) return;
+    const docNumber = input.value.trim();
 
     if (docNumber.length < 2) {
-        document.getElementById('searchResults').style.display = 'none';
+        const res = document.getElementById('searchResults');
+        if (res) res.style.display = 'none';
         _clearAutoFilledFields();
         return;
     }
 
-    // Debounce: esperar 300ms después de que el usuario deje de escribir
     _autoSearchTimer = setTimeout(async () => {
-        const students = await _getAllStudents();
-        const query = docNumber.toLowerCase();
-
-        // 1) Coincidencia exacta (excluyendo desertores)
-        const exactMatch = students.find(s => (s.id || '').toLowerCase() === query && s.status !== 'Desertor');
-
-        if (exactMatch) {
-            _autoFillFields(exactMatch);
-        } else {
-            // 2) Coincidencias parciales (excluyendo desertores)
-            const results = students.filter(s => (s.id || '').toLowerCase().includes(query) && s.status !== 'Desertor');
-            if (results.length === 1) {
-                // Solo un resultado → autocompletar igual
-                _autoFillFields(results[0]);
-            } else {
-                _clearAutoFilledFields();
-                _renderSearchResults(results);
-            }
-        }
-    }, 300);
+        await searchStudent();
+    }, 150);
 }
 
 function _autoFillFields(student) {
@@ -1260,7 +1379,12 @@ function _autoFillFields(student) {
                     ${student.phone ? ' · Tel: ' + student.phone : ''}
                 </div>
             </div>
-            <div class="result-action">
+            <div class="result-action" style="display: flex; gap: 8px;">
+                <button class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
+                    onmouseover="this.style.color='#009900'; this.style.borderColor='#009900';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--text-muted)';"
+                    onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${student.ficha}')">
+                    Ver Historial
+                </button>
                 <button class="btn-primary" style="background: #009900; font-size: 0.8rem; padding: 6px 16px;"
                     onclick="selectSearchResult('${student.id}', '${student.name}', '${student.ficha}', '${student.docType || ''}')">
                     Registrar Asistencia
@@ -1294,21 +1418,49 @@ function _clearAutoFilledFields() {
 }
 
 async function searchStudent(event) {
-    event.preventDefault();
+    if (event && event.preventDefault) event.preventDefault();
 
-    const docType  = document.getElementById('searchDocType').value;
-    const docNumber = document.getElementById('searchDocNumber').value.trim().toLowerCase();
-    const name      = document.getElementById('searchName').value.trim().toLowerCase();
+    const docTypeInput   = document.getElementById('searchDocType');
+    const docNumberInput = document.getElementById('searchDocNumber');
+    const nameInput      = document.getElementById('searchName');
+
+    const docType   = docTypeInput ? docTypeInput.value : '';
+    const rawDoc    = docNumberInput ? docNumberInput.value.trim() : '';
+    const name      = nameInput ? nameInput.value.trim().toLowerCase() : '';
+
+    if (!rawDoc && !name && !docType) return;
 
     const students = await _getAllStudents();
+
+    // ── Búsqueda limpia para lectores de código de barras / cédulas ──
+    if (rawDoc) {
+        const cleanScanned = _cleanDocId(rawDoc);
+        const matches = students.filter(s => {
+            if (s.status === 'Desertor') return false;
+            const cleanId = _cleanDocId(s.id);
+            return cleanId === cleanScanned || 
+                   (cleanScanned.length >= 5 && cleanScanned.includes(cleanId)) || 
+                   (cleanId.length >= 5 && cleanId.includes(cleanScanned)) ||
+                   (s.id || '').toLowerCase() === rawDoc.toLowerCase();
+        });
+
+        if (matches.length > 0) {
+            for (const st of matches) {
+                await selectSearchResult(st.id, st.name, st.group || st.ficha || '', st.docType || 'CC');
+            }
+            return;
+        }
+    }
 
     let results = students.filter(s => {
         let match = s.status !== 'Desertor';
         if (docType) {
             match = match && (s.docType || '').toUpperCase() === docType.toUpperCase();
         }
-        if (docNumber) {
-            match = match && (s.id || '').toLowerCase().includes(docNumber);
+        if (rawDoc) {
+            const cleanScanned = _cleanDocId(rawDoc);
+            const cleanId = _cleanDocId(s.id);
+            match = match && (cleanId.includes(cleanScanned) || cleanScanned.includes(cleanId) || (s.id || '').toLowerCase().includes(rawDoc.toLowerCase()));
         }
         if (name) {
             match = match && (s.name || '').toLowerCase().includes(name);
@@ -1316,7 +1468,53 @@ async function searchStudent(event) {
         return match;
     });
 
+    if (results.length > 0 && rawDoc) {
+        for (const st of results) {
+            await selectSearchResult(st.id, st.name, st.group || st.ficha || '', st.docType || 'CC');
+        }
+        return;
+    }
+
     _renderSearchResults(results);
+}
+
+// ── Listener global para lector USB de código de barras / cédulas ──
+let _barcodeBuffer = '';
+let _barcodeTimeout = null;
+
+document.addEventListener('keydown', (e) => {
+    const tomaView = document.getElementById('view-toma-de-asistencia');
+    if (!tomaView || tomaView.style.display === 'none') return;
+
+    // Si el foco está en un input distinto a searchDocNumber, ignorar
+    if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'searchDocNumber') {
+        return;
+    }
+
+    if (e.key === 'Enter') {
+        if (_barcodeBuffer.length >= 3) {
+            const input = document.getElementById('searchDocNumber');
+            if (input) input.value = _barcodeBuffer;
+            searchStudent(e);
+            _barcodeBuffer = '';
+        }
+    } else if (e.key.length === 1) {
+        _barcodeBuffer += e.key;
+        clearTimeout(_barcodeTimeout);
+        _barcodeTimeout = setTimeout(() => { _barcodeBuffer = ''; }, 400);
+    }
+});
+
+async function resetSessionAttendance() {
+    try {
+        const res = await fetch(`${API_BASE}/api/attendance/reset`, { method: 'DELETE' });
+        if (res.ok) {
+            clearSearchForm();
+            await renderTable();
+        }
+    } catch (err) {
+        console.error('Error al reiniciar sesión:', err);
+    }
 }
 
 function _renderSearchResults(results) {
@@ -1338,12 +1536,12 @@ function _renderSearchResults(results) {
                 <div class="result-info">
                     <div class="result-name">${s.name}</div>
                     <div class="result-details">
-                        ${s.docType ? s.docType + ': ' : 'Doc: '}${s.id} · Ficha: ${s.ficha}
+                        ${s.docType ? s.docType + ': ' : 'Doc: '}${s.id} · Ficha: ${s.group || s.ficha || ''}
                         ${s.phone ? ' · Tel: ' + s.phone : ''}
                     </div>
                 </div>
                 <div class="result-action">
-                    <button class="btn-primary" style="background: var(--primary); font-size: 0.8rem; padding: 6px 16px;" onclick="selectSearchResult('${s.id}', '${s.name}', '${s.ficha}', '${s.docType || ''}')">
+                    <button class="btn-primary" style="background: var(--primary); font-size: 0.8rem; padding: 6px 16px;" onclick="selectSearchResult('${s.id}', '${s.name.replace(/'/g, "\\'")}', '${s.group || s.ficha || ''}', '${s.docType || ''}')">
                         Registrar Asistencia
                     </button>
                 </div>
@@ -1356,7 +1554,6 @@ function _renderSearchResults(results) {
 
 function validateDocNumber(input) {
     const original = input.value;
-    // Quitar todo lo que no sea dígito
     const onlyNums = original.replace(/\D/g, '');
     const hasInvalid = original !== onlyNums;
 
@@ -1375,9 +1572,12 @@ function validateDocNumber(input) {
 }
 
 function clearSearchForm() {
-    document.getElementById('searchStudentForm').reset();
-    document.getElementById('searchResults').style.display = 'none';
-    document.getElementById('searchResultsList').innerHTML = '';
+    const form = document.getElementById('searchStudentForm');
+    if (form) form.reset();
+    const resContainer = document.getElementById('searchResults');
+    if (resContainer) resContainer.style.display = 'none';
+    const resList = document.getElementById('searchResultsList');
+    if (resList) resList.innerHTML = '';
 }
 
 async function selectSearchResult(id, name, ficha, docType = '') {
@@ -1385,41 +1585,14 @@ async function selectSearchResult(id, name, ficha, docType = '') {
     const resultsList = document.getElementById('searchResultsList');
 
     try {
-        // ── Verificar si ya tiene asistencia hoy en esta ficha ──
-        const existingRes = await fetch(`${API_BASE}/api/attendance`);
-        const allAttendance = await existingRes.json();
-        const yaRegistrado = allAttendance.some(
-            a => a.doc === id && a.group === ficha && a.fecha === fecha
-        );
-
-        if (yaRegistrado) {
-            if (resultsList) {
-                resultsList.innerHTML = `
-                    <div class="search-result-item" style="border-left-color:#f59e0b; background:#fffbeb;">
-                        <div class="result-info">
-                            <div class="result-name" style="color:#d97706;">
-                                ⚠ Asistencia ya registrada hoy
-                            </div>
-                            <div class="result-details">
-                                <strong>${name}</strong> · ${docType ? docType + ': ' : 'Doc: '}${id} · Ficha: ${ficha}<br>
-                                Ya tiene asistencia registrada el 📅 ${fecha}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            return; // Detener — no registrar duplicado
-        }
-
-        // ── Registrar asistencia ──
         const res = await fetch(`${API_BASE}/api/attendance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name,
                 doc:     id,
-                docType: docType,
-                group:   ficha,
+                docType: docType || 'CC',
+                group:   ficha || '',
                 status:  'Presente',
                 time:    hora,
                 fecha,
@@ -1428,23 +1601,26 @@ async function selectSearchResult(id, name, ficha, docType = '') {
         });
 
         if (res.ok) {
+            // Actualizar la tabla de asistencias inmediatamente
+            await renderTable();
+
             if (resultsList) {
                 resultsList.innerHTML = `
                     <div class="search-result-item" style="border-left-color:#009900; background:#f0fdf4;">
                         <div class="result-info">
-                            <div class="result-name" style="color:#009900;">✓ Asistencia registrada exitosamente</div>
+                            <div class="result-name" style="color:#009900;">✓ Asistencia registrada: ${name}</div>
                             <div class="result-details">
-                                <strong>${name}</strong> · ${docType ? docType + ': ' : 'Doc: '}${id} · Ficha: ${ficha}<br>
+                                Doc: ${id} · Ficha: ${ficha || 'General'}<br>
                                 📅 ${fecha} &nbsp; 🕐 ${hora}
                             </div>
                         </div>
                     </div>
                 `;
             }
+
             setTimeout(() => {
                 clearSearchForm();
-                renderTable();
-            }, 2500);
+            }, 1000);
         } else {
             alert('Error al registrar la asistencia. Intenta de nuevo.');
         }
@@ -1693,3 +1869,500 @@ async function exportToPDF() {
     const fileName = `Reporte_Asistencia_${currentFichaFilter || 'General'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
 }
+
+// ============================================
+// Modal de Historial desde Búsqueda (Diseño Premium)
+// ============================================
+let historyParticlesAnimId = null;
+
+function startHistoryParticles() {
+    const canvas = document.getElementById('historyParticlesCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = [];
+    for (let i = 0; i < 80; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() * 4 + 1.5,
+            dx: (Math.random() - 0.5) * 0.5,
+            dy: (Math.random() - 0.5) * 0.5,
+            alpha: Math.random() * 0.5 + 0.5,
+            pulse: Math.random() * Math.PI * 2
+        });
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            p.x += p.dx;
+            p.y += p.dy;
+            p.pulse += 0.025;
+            const currentAlpha = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+
+            if (p.x < 0) p.x = canvas.width;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.y < 0) p.y = canvas.height;
+            if (p.y > canvas.height) p.y = 0;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 255, 80, ${currentAlpha})`;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = `rgba(0, 255, 80, ${currentAlpha})`;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+        historyParticlesAnimId = requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+function stopHistoryParticles() {
+    if (historyParticlesAnimId) {
+        cancelAnimationFrame(historyParticlesAnimId);
+        historyParticlesAnimId = null;
+    }
+    const canvas = document.getElementById('historyParticlesCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+async function showStudentHistoryModal(docId, studentName, ficha) {
+    try {
+        const response = await fetch(`${API_BASE}/api/attendance`);
+        const allAttendance = await response.json();
+        
+        const records = allAttendance.filter(r => r.doc === docId);
+        records.sort((a, b) => b.timestamp - a.timestamp);
+        
+        const modal = document.getElementById('historyModal');
+        const modalTitle = document.getElementById('historyModalTitle');
+        const listContainer = document.getElementById('historyModalList');
+        
+        modalTitle.textContent = studentName;
+        
+        // Fondo oscuro premium
+        modal.style.background = 'rgba(10, 15, 10, 0.85)';
+        modal.style.backdropFilter = 'blur(8px)';
+        
+        if (records.length === 0) {
+            listContainer.innerHTML = `
+                <div style="text-align:center; padding: 30px 10px; color: #94a3b8;">
+                    <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
+                    <div style="font-size: 0.85rem;">No hay registros de asistencia para este aprendiz.</div>
+                </div>`;
+        } else {
+            let html = `<div style="margin-bottom: 12px; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Total: ${records.length} registro${records.length > 1 ? 's' : ''}</div>`;
+            records.forEach((r, i) => {
+                let statusColor = '#16a34a';
+                let statusBg = 'rgba(22,163,74,0.1)';
+                let statusBorder = 'rgba(22,163,74,0.2)';
+                if (r.status === 'Tarde') {
+                    statusColor = '#ea580c';
+                    statusBg = 'rgba(234,88,12,0.1)';
+                    statusBorder = 'rgba(234,88,12,0.2)';
+                } else if (r.status === 'Ausente') {
+                    statusColor = '#dc2626';
+                    statusBg = 'rgba(220,38,38,0.1)';
+                    statusBorder = 'rgba(220,38,38,0.2)';
+                } else if (r.status === 'Justificado') {
+                    statusColor = '#6366f1';
+                    statusBg = 'rgba(99,102,241,0.1)';
+                    statusBorder = 'rgba(99,102,241,0.2)';
+                }
+                
+                const isLast = i === records.length - 1;
+                html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 0; ${isLast ? '' : 'border-bottom: 1px solid #f1f5f9;'}">
+                        <div>
+                            <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem; font-family: 'Outfit', sans-serif;">${r.fecha || 'Sin fecha'}</div>
+                            <div style="color: #94a3b8; font-size: 0.78rem; margin-top: 2px;">${r.time || 'Sin hora'}</div>
+                        </div>
+                        <div style="background: ${statusBg}; color: ${statusColor}; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; border: 1px solid ${statusBorder}; letter-spacing: 0.3px;">
+                            ${r.status}
+                        </div>
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
+        }
+        
+        modal.style.display = 'flex';
+        startHistoryParticles();
+        
+        // Re-render iconos de Lucide en el modal
+        if (window.lucide) lucide.createIcons();
+        
+    } catch (err) {
+        console.error('Error cargando el historial:', err);
+        alert('Ocurrió un error al cargar el historial.');
+    }
+}
+
+function closeHistoryModal() {
+    stopHistoryParticles();
+    document.getElementById('historyModal').style.display = 'none';
+}
+
+// ==========================================
+// GESTIÓN DE EVIDENCIAS DE INASISTENCIA
+// ==========================================
+
+async function submitEvidence(event) {
+    event.preventDefault();
+    
+    const fecha = document.getElementById('evidFecha').value;
+    const motivo = document.getElementById('evidMotivo').value;
+    const notas = document.getElementById('evidNotas').value.trim();
+    const fileInput = document.getElementById('evidArchivo');
+    
+    if (!fecha || !motivo) {
+        alert('Por favor completa los campos obligatorios.');
+        return;
+    }
+    
+    let fileName = '';
+    let fileData = '';
+    
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        if (file.size > 8 * 1024 * 1024) {
+            alert('El archivo no debe superar los 8MB.');
+            return;
+        }
+        fileName = file.name;
+        fileData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const studentName = sessionStorage.getItem('sena_name') || 'Aprendiz';
+    const studentUser = sessionStorage.getItem('sena_user') || '';
+    
+    const payload = {
+        studentDoc: studentUser,
+        studentName: studentName,
+        group: 'ADSO 3292060',
+        absenceDate: fecha,
+        reason: motivo,
+        notes: notas,
+        fileName: fileName,
+        fileData: fileData
+    };
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/evidences`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+            await showConfirmModal({
+                title: '¡Evidencia Enviada!',
+                message: 'Tu reporte de inasistencia ha sido subido correctamente y está en proceso de revisión por el instructor.',
+                confirmText: 'Aceptar',
+                cancelText: '',
+                confirmBg: '#009900',
+                iconName: 'check-circle',
+                iconBg: 'rgba(0, 153, 0, 0.15)',
+                iconColor: '#009900'
+            });
+            document.getElementById('formSubirEvidencia').reset();
+            renderEvidencias();
+        } else {
+            alert('Ocurrió un error al enviar la evidencia.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('No se pudo conectar con el servidor.');
+    }
+}
+
+async function renderEvidencias() {
+    const tbody = document.getElementById('evidenciasTableBody');
+    if (!tbody) return;
+    
+    const role = (sessionStorage.getItem('sena_role') || '').toUpperCase();
+    const currentName = sessionStorage.getItem('sena_name') || '';
+    const currentUser = sessionStorage.getItem('sena_user') || '';
+
+    const titleElem = document.getElementById('titleTablaEvidencias');
+    if (titleElem) {
+        titleElem.textContent = (role === 'APRENDIZ') 
+            ? 'Mis Evidencias Enviadas' 
+            : 'Evidencias Recibidas de Aprendices';
+    }
+
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">Cargando registros...</td></tr>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/evidences`);
+        if (!res.ok) throw new Error('Error de red');
+        let evidences = await res.json();
+
+        // Filtrar si es aprendiz
+        if (role === 'APRENDIZ') {
+            evidences = evidences.filter(e => 
+                (e.studentName && e.studentName.toLowerCase().includes(currentName.toLowerCase())) ||
+                (e.studentDoc && e.studentDoc.toLowerCase() === currentUser.toLowerCase())
+            );
+        }
+
+        if (evidences.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 32px; color: #64748b;">
+                        <i data-lucide="inbox" style="width: 36px; height: 36px; color: #cbd5e1; margin-bottom: 8px;"></i>
+                        <div>No hay evidencias registradas en este momento.</div>
+                    </td>
+                </tr>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = evidences.map((item, index) => {
+            let badgeStyle = 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;'; // En Revisión
+            if (item.status === 'Aprobada') {
+                badgeStyle = 'background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;';
+            } else if (item.status === 'Rechazada') {
+                badgeStyle = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;';
+            }
+
+            let fileHtml = '<span style="color: #94a3b8; font-size: 0.8rem;">Sin archivo</span>';
+            if (item.fileData) {
+                fileHtml = `
+                    <a href="${item.fileData}" download="${item.fileName || 'evidencia.pdf'}" 
+                       style="display: inline-flex; align-items: center; gap: 4px; color: #009900; font-weight: 600; text-decoration: none; font-size: 0.82rem; padding: 4px 8px; background: rgba(0,153,0,0.08); border-radius: 6px;" target="_blank">
+                        <i data-lucide="paperclip" style="width: 14px; height: 14px;"></i>
+                        ${item.fileName || 'Ver Evidencia'}
+                    </a>
+                `;
+            }
+
+            let actionsHtml = '-';
+            if (role === 'INSTRUCTOR' || role === 'COORDINADOR') {
+                actionsHtml = `
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="updateEvidenceStatus('${item.id}', 'Aprobada')" title="Aprobar Excusa" style="background: #10b981; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            ✓ Aprobar
+                        </button>
+                        <button onclick="updateEvidenceStatus('${item.id}', 'Rechazada')" title="Rechazar Excusa" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            ✕ Rechazar
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px; font-weight: 600; color: #64748b;">${index + 1}</td>
+                    <td style="padding: 12px; font-weight: 600; color: #1e293b;">
+                        ${item.studentName || 'Aprendiz'}
+                        <div style="font-size: 0.75rem; color: #64748b; font-weight: normal;">${item.group || ''}</div>
+                    </td>
+                    <td style="padding: 12px; font-weight: 600; color: #0f172a;">${item.absenceDate || '---'}</td>
+                    <td style="padding: 12px; font-size: 0.85rem; color: #334155;">${item.reason || '---'}</td>
+                    <td style="padding: 12px; font-size: 0.82rem; color: #64748b; max-width: 200px; word-wrap: break-word;">${item.notes || '---'}</td>
+                    <td style="padding: 12px;">${fileHtml}</td>
+                    <td style="padding: 12px;">
+                        <span style="font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; ${badgeStyle}">
+                            ${item.status || 'En Revisión'}
+                        </span>
+                    </td>
+                    <td style="padding: 12px; font-size: 0.82rem; color: #64748b;">${item.replyNotes || 'Ninguna'}</td>
+                    <td style="padding: 12px;">${actionsHtml}</td>
+                </tr>
+            `;
+        }).join('');
+
+        if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #ef4444;">Error al cargar las evidencias.</td></tr>`;
+    }
+}
+
+async function updateEvidenceStatus(id, newStatus) {
+    try {
+        const res = await fetch(`${API_BASE}/api/evidences/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+            renderEvidencias();
+        } else {
+            alert('No se pudo actualizar el estado de la evidencia.');
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// ==========================================
+// GESTIÓN DE INSTRUCTORES (COORDINACIÓN)
+// ==========================================
+
+function openAgregarInstructorModal() {
+    const modal = document.getElementById('modalAgregarInstructor');
+    if (modal) {
+        document.getElementById('formAgregarInstructor')?.reset();
+        modal.style.display = 'flex';
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+function closeAgregarInstructorModal() {
+    const modal = document.getElementById('modalAgregarInstructor');
+    if (modal) modal.style.display = 'none';
+}
+
+async function saveInstructor(event) {
+    event.preventDefault();
+    const name = document.getElementById('instNombre').value.trim();
+    const documentVal = document.getElementById('instDoc').value.trim();
+    const email = document.getElementById('instCorreo').value.trim();
+    const password = document.getElementById('instPass').value;
+    const fichas = document.getElementById('instFichas').value.trim();
+
+    if (!name || !email || !password) {
+        alert('Nombre, correo y contraseña son obligatorios.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/instructors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                document: documentVal,
+                email,
+                password,
+                fichas
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            closeAgregarInstructorModal();
+            await showConfirmModal({
+                title: '¡Instructor Registrado!',
+                message: `El instructor <strong>${name}</strong> ha sido creado con éxito. Ya puede iniciar sesión con el correo <strong>${email}</strong>.`,
+                confirmText: 'Entendido',
+                cancelText: '',
+                confirmBg: '#009900',
+                iconName: 'user-check',
+                iconBg: 'rgba(0, 153, 0, 0.15)',
+                iconColor: '#009900'
+            });
+            renderInstructores();
+        } else {
+            alert(data.error || 'No se pudo registrar al instructor.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al conectar con el servidor.');
+    }
+}
+
+async function renderInstructores() {
+    const tbody = document.getElementById('instructoresTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #64748b;">Cargando instructores...</td></tr>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/instructors`);
+        if (!res.ok) throw new Error('Error al obtener lista');
+        const instructors = await res.json();
+
+        if (instructors.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 32px; color: #64748b;">
+                        <i data-lucide="users" style="width: 36px; height: 36px; color: #cbd5e1; margin-bottom: 8px;"></i>
+                        <div>No hay instructores registrados. Haz clic en "Registrar Nuevo Instructor".</div>
+                    </td>
+                </tr>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = instructors.map((inst, index) => {
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px; font-weight: 600; color: #64748b;">${index + 1}</td>
+                    <td style="padding: 12px; font-weight: 700; color: #1e293b;">
+                        ${inst.name}
+                        <div style="font-size: 0.75rem; color: #64748b; font-weight: normal;">Registrado: ${inst.createdAt || '---'}</div>
+                    </td>
+                    <td style="padding: 12px; font-size: 0.88rem; color: #334155;">${inst.document || '---'}</td>
+                    <td style="padding: 12px; font-size: 0.88rem; font-weight: 600; color: #009900;">${inst.email}</td>
+                    <td style="padding: 12px; font-size: 0.85rem; font-family: monospace; color: #64748b;">••••••••</td>
+                    <td style="padding: 12px; font-size: 0.85rem; color: #334155;">${inst.fichas || 'Todas'}</td>
+                    <td style="padding: 12px;">
+                        <span style="font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
+                            ● Activo
+                        </span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <button onclick="deleteInstructor('${inst.id}', '${inst.name.replace(/'/g, "\\'")}')" 
+                                style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"
+                                title="Eliminar acceso">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #ef4444;">Error al cargar los instructores.</td></tr>`;
+    }
+}
+
+async function deleteInstructor(id, name) {
+    const confirmed = await showConfirmModal({
+        title: 'Eliminar Instructor',
+        message: `¿Estás seguro de <strong>eliminar el acceso</strong> para el instructor <strong>${name}</strong>? Ya no podrá iniciar sesión en la plataforma.`,
+        confirmText: 'Sí, Eliminar Acceso',
+        cancelText: 'Cancelar',
+        confirmBg: '#ef4444',
+        iconName: 'trash-2',
+        iconBg: 'rgba(239, 68, 68, 0.12)',
+        iconColor: '#ef4444'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/instructors/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            renderInstructores();
+        } else {
+            alert('Error al eliminar el instructor.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión.');
+    }
+}
+
+
