@@ -7,15 +7,20 @@ const os = require('os');
 
 const app = express();
 const PORT = 3000;
-const DATA_FILE = path.join(__dirname, 'attendance.json');
-const STUDENTS_FILE = path.join(__dirname, 'students.json');
-const CLASSES_FILE = path.join(__dirname, 'classes.json');
-const EVIDENCES_FILE = path.join(__dirname, 'evidences.json');
-const INSTRUCTORS_FILE = path.join(__dirname, 'instructors.json');
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const DATA_FILE = path.join(DATA_DIR, 'attendance.json');
+const STUDENTS_FILE = path.join(DATA_DIR, 'students.json');
+const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
+const EVIDENCES_FILE = path.join(DATA_DIR, 'evidences.json');
+const INSTRUCTORS_FILE = path.join(DATA_DIR, 'instructors.json');
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
-app.use(express.static(__dirname, {
+app.use(express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, path) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
@@ -140,21 +145,49 @@ app.post('/api/evidences', (req, res) => {
 app.put('/api/evidences/:id', (req, res) => {
     try {
         let data = JSON.parse(fs.readFileSync(EVIDENCES_FILE));
-        let updated = false;
+        let targetItem = null;
+
         data.forEach(item => {
-            if (item.id === req.params.id) {
+            if (String(item.id) === String(req.params.id)) {
                 if (req.body.status) item.status = req.body.status;
                 if (req.body.replyNotes !== undefined) item.replyNotes = req.body.replyNotes;
-                updated = true;
+                targetItem = item;
             }
         });
-        if (updated) {
+
+        if (targetItem) {
             fs.writeFileSync(EVIDENCES_FILE, JSON.stringify(data, null, 2));
-            res.json({ success: true });
+
+            // Si se aprueba la excusa, actualizar asistencia a 'Justificado' automáticamente
+            if (targetItem.status === 'Aprobada' && targetItem.studentDoc) {
+                try {
+                    let attendanceData = JSON.parse(fs.readFileSync(DATA_FILE));
+                    const docClean = String(targetItem.studentDoc).replace(/\D/g, '').replace(/^0+/, '');
+                    let attUpdated = false;
+
+                    attendanceData.forEach(att => {
+                        const attClean = String(att.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+                        const nameMatch = att.name && targetItem.studentName && att.name.toLowerCase() === targetItem.studentName.toLowerCase();
+                        if ((attClean === docClean || nameMatch) && (att.fecha === targetItem.absenceDate || att.date === targetItem.absenceDate)) {
+                            att.status = 'Justificado';
+                            attUpdated = true;
+                        }
+                    });
+
+                    if (attUpdated) {
+                        fs.writeFileSync(DATA_FILE, JSON.stringify(attendanceData, null, 2));
+                    }
+                } catch (attErr) {
+                    console.error('Error al actualizar la asistencia:', attErr);
+                }
+            }
+
+            res.json({ success: true, evidence: targetItem });
         } else {
             res.status(404).json({ error: 'Evidencia no encontrada' });
         }
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: 'Error al actualizar la evidencia' });
     }
 });

@@ -93,6 +93,9 @@ function initUserProfile() {
     // Load saved avatar
     const savedAvatar = localStorage.getItem('sena_avatar');
     updateAllAvatars(savedAvatar);
+
+    // Actualizar insignias de evidencias pendientes en el menú y campana
+    updatePendingEvidencesBadge();
 }
 
 
@@ -2077,6 +2080,7 @@ async function submitEvidence(event) {
                 iconColor: '#009900'
             });
             document.getElementById('formSubirEvidencia').reset();
+            clearEvidFile();
             renderEvidencias();
         } else {
             alert('Ocurrió un error al enviar la evidencia.');
@@ -2085,6 +2089,88 @@ async function submitEvidence(event) {
         console.error(err);
         alert('No se pudo conectar con el servidor.');
     }
+}
+
+function handleEvidFileSelect(event) {
+    const fileInput = event.target;
+    const previewContainer = document.getElementById('evidFilePreview');
+    const mediaBox = document.getElementById('previewMediaContainer');
+    const nameBox = document.getElementById('previewFileName');
+    const sizeBox = document.getElementById('previewFileSize');
+
+    if (!fileInput.files || !fileInput.files[0]) {
+        if (previewContainer) previewContainer.style.display = 'none';
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    if (file.size > 8 * 1024 * 1024) {
+        alert('El archivo no debe superar los 8MB.');
+        fileInput.value = '';
+        if (previewContainer) previewContainer.style.display = 'none';
+        return;
+    }
+
+    if (nameBox) nameBox.textContent = file.name;
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    if (sizeBox) sizeBox.textContent = `Tamaño: ${sizeMB} MB`;
+
+    if (mediaBox) {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                mediaBox.innerHTML = `<img src="${e.target.result}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            mediaBox.innerHTML = `<div style="text-align: center; color: #ef4444;"><i data-lucide="file-text" style="width: 32px; height: 32px;"></i><div style="font-size: 0.65rem; font-weight: 700;">PDF</div></div>`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    if (previewContainer) previewContainer.style.display = 'flex';
+}
+
+function clearEvidFile() {
+    const fileInput = document.getElementById('evidArchivo');
+    if (fileInput) fileInput.value = '';
+    const previewContainer = document.getElementById('evidFilePreview');
+    if (previewContainer) previewContainer.style.display = 'none';
+}
+
+function openMediaModal(src, title, fileName) {
+    const modal = document.getElementById('modalVerEvidenciaMedia');
+    if (!modal) return;
+    const titleEl = document.getElementById('mediaModalTitle');
+    const imgEl = document.getElementById('mediaModalImage');
+    const iframeEl = document.getElementById('mediaModalIframe');
+    const downloadEl = document.getElementById('mediaModalDownload');
+
+    if (titleEl) titleEl.innerHTML = `<i data-lucide="file-text" style="color: #009900; width: 20px; height: 20px;"></i> Evidencia de ${title || 'Aprendiz'}`;
+    if (downloadEl) {
+        downloadEl.href = src;
+        downloadEl.download = fileName || 'evidencia';
+    }
+
+    if (src.startsWith('data:image/') || /\.(png|jpg|jpeg)$/i.test(fileName || '')) {
+        imgEl.src = src;
+        imgEl.style.display = 'block';
+        iframeEl.style.display = 'none';
+    } else {
+        iframeEl.src = src;
+        iframeEl.style.display = 'block';
+        imgEl.style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function closeMediaModal(e) {
+    if (e && e.target !== e.currentTarget && e.type === 'click') return;
+    const modal = document.getElementById('modalVerEvidenciaMedia');
+    if (modal) modal.style.display = 'none';
 }
 
 async function renderEvidencias() {
@@ -2138,21 +2224,40 @@ async function renderEvidencias() {
                 badgeStyle = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;';
             }
 
-            let fileHtml = '<span style="color: #94a3b8; font-size: 0.8rem;">Sin archivo</span>';
+            let fileHtml = '<span style="color: #94a3b8; font-size: 0.8rem; white-space: nowrap;">Sin archivo</span>';
             if (item.fileData) {
-                fileHtml = `
-                    <a href="${item.fileData}" download="${item.fileName || 'evidencia.pdf'}" 
-                       style="display: inline-flex; align-items: center; gap: 4px; color: #009900; font-weight: 600; text-decoration: none; font-size: 0.82rem; padding: 4px 8px; background: rgba(0,153,0,0.08); border-radius: 6px;" target="_blank">
-                        <i data-lucide="paperclip" style="width: 14px; height: 14px;"></i>
-                        ${item.fileName || 'Ver Evidencia'}
-                    </a>
-                `;
+                const isImage = item.fileData.startsWith('data:image/') || /\.(png|jpg|jpeg)$/i.test(item.fileName || '');
+                if (isImage) {
+                    fileHtml = `
+                        <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                            <div onclick="openMediaModal('${item.fileData}', '${(item.studentName || 'Aprendiz').replace(/'/g, "\\'")}', '${(item.fileName || 'evidencia.png').replace(/'/g, "\\'")}')" 
+                                 style="width: 40px; height: 40px; border-radius: 8px; overflow: hidden; border: 1.5px solid #009900; cursor: pointer; position: relative; background: #f0fdf4; flex-shrink: 0;" title="Ver imagen completa">
+                                <img src="${item.fileData}" alt="Evidencia" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                                <button type="button" onclick="openMediaModal('${item.fileData}', '${(item.studentName || 'Aprendiz').replace(/'/g, "\\'")}', '${(item.fileName || 'evidencia.png').replace(/'/g, "\\'")}')" 
+                                        style="background: none; border: none; color: #009900; font-weight: 700; font-size: 0.78rem; cursor: pointer; text-align: left; padding: 0; white-space: nowrap;">
+                                    🔍 Ver Imagen
+                                </button>
+                                <a href="${item.fileData}" download="${item.fileName || 'evidencia.png'}" style="font-size: 0.72rem; color: #64748b; text-decoration: none; white-space: nowrap;">⬇ Descargar</a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    fileHtml = `
+                        <a href="${item.fileData}" download="${item.fileName || 'evidencia.pdf'}" 
+                           style="display: inline-flex; align-items: center; gap: 4px; color: #009900; font-weight: 600; text-decoration: none; font-size: 0.82rem; padding: 5px 10px; background: rgba(0,153,0,0.08); border-radius: 8px; border: 1px solid rgba(0,153,0,0.2); white-space: nowrap;" target="_blank">
+                            <i data-lucide="file-text" style="width: 15px; height: 15px;"></i>
+                            ${item.fileName || 'Descargar PDF'}
+                        </a>
+                    `;
+                }
             }
 
             let actionsHtml = '-';
             if (role === 'INSTRUCTOR' || role === 'COORDINADOR') {
                 actionsHtml = `
-                    <div style="display: flex; gap: 6px;">
+                    <div style="display: flex; gap: 6px; white-space: nowrap;">
                         <button onclick="updateEvidenceStatus('${item.id}', 'Aprobada')" title="Aprobar Excusa" style="background: #10b981; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                             ✓ Aprobar
                         </button>
@@ -2165,22 +2270,22 @@ async function renderEvidencias() {
 
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 12px; font-weight: 600; color: #64748b;">${index + 1}</td>
-                    <td style="padding: 12px; font-weight: 600; color: #1e293b;">
+                    <td style="padding: 12px 10px; font-weight: 600; color: #64748b; text-align: center; vertical-align: middle;">${index + 1}</td>
+                    <td style="padding: 12px 10px; font-weight: 600; color: #1e293b; vertical-align: middle;">
                         ${item.studentName || 'Aprendiz'}
                         <div style="font-size: 0.75rem; color: #64748b; font-weight: normal;">${item.group || ''}</div>
                     </td>
-                    <td style="padding: 12px; font-weight: 600; color: #0f172a;">${item.absenceDate || '---'}</td>
-                    <td style="padding: 12px; font-size: 0.85rem; color: #334155;">${item.reason || '---'}</td>
-                    <td style="padding: 12px; font-size: 0.82rem; color: #64748b; max-width: 200px; word-wrap: break-word;">${item.notes || '---'}</td>
-                    <td style="padding: 12px;">${fileHtml}</td>
-                    <td style="padding: 12px;">
-                        <span style="font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; ${badgeStyle}">
+                    <td style="padding: 12px 10px; font-weight: 600; color: #0f172a; white-space: nowrap; vertical-align: middle;">${item.absenceDate || '---'}</td>
+                    <td style="padding: 12px 10px; font-size: 0.85rem; color: #334155; vertical-align: middle;">${item.reason || '---'}</td>
+                    <td style="padding: 12px 10px; font-size: 0.82rem; color: #64748b; max-width: 180px; word-wrap: break-word; vertical-align: middle;">${item.notes || '---'}</td>
+                    <td style="padding: 12px 10px; vertical-align: middle;">${fileHtml}</td>
+                    <td style="padding: 12px 10px; vertical-align: middle; white-space: nowrap;">
+                        <span style="font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; display: inline-block; white-space: nowrap; ${badgeStyle}">
                             ${item.status || 'En Revisión'}
                         </span>
                     </td>
-                    <td style="padding: 12px; font-size: 0.82rem; color: #64748b;">${item.replyNotes || 'Ninguna'}</td>
-                    <td style="padding: 12px;">${actionsHtml}</td>
+                    <td style="padding: 12px 10px; font-size: 0.82rem; color: #64748b; vertical-align: middle;">${item.replyNotes || 'Ninguna'}</td>
+                    <td style="padding: 12px 10px; vertical-align: middle; white-space: nowrap;">${actionsHtml}</td>
                 </tr>
             `;
         }).join('');
@@ -2193,19 +2298,103 @@ async function renderEvidencias() {
 }
 
 async function updateEvidenceStatus(id, newStatus) {
+    const isApprove = newStatus === 'Aprobada';
+    const replyNotes = prompt(
+        isApprove 
+            ? '¿Deseas agregar una nota u observación de respuesta al aprendiz? (Opcional)' 
+            : 'Por favor indica el motivo por el cual rechazas esta evidencia (Opcional):', 
+        isApprove ? 'Excusa Aprobada' : 'Evidencia Rechazada'
+    );
+    
+    // Si presiona Cancelar en el prompt
+    if (replyNotes === null) return;
+
     try {
         const res = await fetch(`${API_BASE}/api/evidences/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
+            body: JSON.stringify({ 
+                status: newStatus,
+                replyNotes: replyNotes || (isApprove ? 'Excusa Aprobada' : 'Evidencia Rechazada')
+            })
         });
+        
         if (res.ok) {
+            await showConfirmModal({
+                title: isApprove ? '¡Evidencia Aprobada!' : 'Evidencia Rechazada',
+                message: isApprove 
+                    ? 'La inasistencia del aprendiz ha sido <strong>justificada</strong> correctamente en el sistema.' 
+                    : 'La solicitud fue marcada como rechazada.',
+                confirmText: 'Entendido',
+                cancelText: '',
+                confirmBg: isApprove ? '#10b981' : '#ef4444',
+                iconName: isApprove ? 'check-circle' : 'x-circle',
+                iconBg: isApprove ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                iconColor: isApprove ? '#10b981' : '#ef4444'
+            });
             renderEvidencias();
+            updatePendingEvidencesBadge();
         } else {
             alert('No se pudo actualizar el estado de la evidencia.');
         }
     } catch (err) {
         console.error(err);
+        alert('Error de conexión.');
+    }
+}
+
+async function updatePendingEvidencesBadge() {
+    try {
+        const res = await fetch(`${API_BASE}/api/evidences`);
+        if (!res.ok) return;
+        const evidences = await res.json();
+        
+        const role = (sessionStorage.getItem('sena_role') || '').toUpperCase();
+        const currentName = sessionStorage.getItem('sena_name') || '';
+        const currentUser = sessionStorage.getItem('sena_user') || '';
+
+        let pendingCount = 0;
+
+        if (role === 'APRENDIZ') {
+            const userEvidences = evidences.filter(e => 
+                (e.studentName && e.studentName.toLowerCase().includes(currentName.toLowerCase())) ||
+                (e.studentDoc && e.studentDoc.toLowerCase() === currentUser.toLowerCase())
+            );
+            pendingCount = userEvidences.filter(e => e.status === 'Aprobada' || e.status === 'Rechazada').length;
+        } else {
+            pendingCount = evidences.filter(e => e.status === 'En Revisión' || !e.status).length;
+        }
+
+        const sidebarBadge = document.getElementById('evidBadgeCounter');
+        const headerBadge = document.getElementById('headerNotificationBadge');
+
+        if (sidebarBadge) {
+            if (pendingCount > 0) {
+                sidebarBadge.textContent = pendingCount;
+                sidebarBadge.style.display = 'inline-block';
+            } else {
+                sidebarBadge.style.display = 'none';
+            }
+        }
+
+        if (headerBadge) {
+            if (pendingCount > 0) {
+                headerBadge.textContent = pendingCount;
+                headerBadge.style.display = 'flex';
+            } else {
+                headerBadge.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error('Error al actualizar contador de notificaciones:', err);
+    }
+}
+
+function openNotificationsView() {
+    const navEvid = document.getElementById('navEvidencias');
+    if (navEvid) {
+        const link = navEvid.querySelector('a');
+        if (link) link.click();
     }
 }
 
