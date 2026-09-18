@@ -115,7 +115,7 @@ export default function CheckIn() {
   if (isLoading) {
     return (
       <div className="min-h-screen w-full flex flex-col justify-center items-center p-4">
-        <h2 className="text-[#00e5e5] text-3xl font-extrabold tracking-widest animate-pulse mb-2">AsistQR</h2>
+        <h2 className="text-[#00e5e5] text-3xl font-extrabold tracking-widest animate-pulse mb-2">SENA AsistQR</h2>
         <p className="text-slate-400 text-sm">Cargando formulario de asistencia...</p>
       </div>
     );
@@ -173,7 +173,7 @@ export default function CheckIn() {
             <div className="text-center mb-6">
               <div className="text-[#051414] font-black text-xl flex items-center justify-center gap-2 mb-2">
                 <ShieldCheck className="text-emerald-500 w-6 h-6" />
-                <span>AsistQR Control</span>
+                <span>SENA AsistQR</span>
               </div>
               <span className="inline-block bg-emerald-50 text-emerald-700 px-3.5 py-1 rounded-full text-xs font-extrabold tracking-wide border border-emerald-100">
                 Ficha: {fichaId}
