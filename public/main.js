@@ -2256,16 +2256,21 @@ async function renderEvidencias() {
 
             let actionsHtml = '-';
             if (role === 'INSTRUCTOR' || role === 'COORDINADOR') {
-                actionsHtml = `
-                    <div style="display: flex; gap: 6px; white-space: nowrap;">
-                        <button onclick="updateEvidenceStatus('${item.id}', 'Aprobada')" title="Aprobar Excusa" style="background: #10b981; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                            ✓ Aprobar
-                        </button>
-                        <button onclick="updateEvidenceStatus('${item.id}', 'Rechazada')" title="Rechazar Excusa" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                            ✕ Rechazar
-                        </button>
-                    </div>
-                `;
+                const isPending = !item.status || item.status === 'En Revisión';
+                if (isPending) {
+                    actionsHtml = `
+                        <div style="display: flex; gap: 6px; white-space: nowrap;">
+                            <button onclick="updateEvidenceStatus('${item.id}', 'Aprobada')" title="Aprobar Excusa" style="background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                ✓ Aprobar
+                            </button>
+                            <button onclick="updateEvidenceStatus('${item.id}', 'Rechazada')" title="Rechazar Excusa" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                ✕ Rechazar
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionsHtml = `<span style="font-size: 0.78rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: nowrap;">🔒 Evaluada</span>`;
+                }
             }
 
             return `
@@ -2297,16 +2302,75 @@ async function renderEvidencias() {
     }
 }
 
+function showReplyModal(isApprove) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modalRespuestaEvidencia');
+        if (!modal) {
+            resolve(isApprove ? 'Excusa Aprobada' : 'Evidencia Rechazada');
+            return;
+        }
+
+        const iconBg = document.getElementById('replyModalIconBg');
+        const icon = document.getElementById('replyModalIcon');
+        const title = document.getElementById('replyModalTitle');
+        const subtitle = document.getElementById('replyModalSubtitle');
+        const input = document.getElementById('replyModalInput');
+        const confirmBtn = document.getElementById('replyModalConfirmBtn');
+
+        if (isApprove) {
+            if (iconBg) iconBg.style.background = 'rgba(16, 185, 129, 0.15)';
+            if (icon) {
+                icon.setAttribute('data-lucide', 'check-circle');
+                icon.style.color = '#10b981';
+            }
+            if (title) title.textContent = 'Aprobar Excusa Médica / Evidencia';
+            if (subtitle) subtitle.textContent = 'La falta del aprendiz cambiará a Justificado automáticamente.';
+            if (input) input.value = 'Excusa Aprobada';
+            if (confirmBtn) {
+                confirmBtn.style.background = '#10b981';
+                confirmBtn.innerHTML = `<i data-lucide="check" style="width: 16px; height: 16px;"></i> Aprobar Excusa`;
+            }
+        } else {
+            if (iconBg) iconBg.style.background = 'rgba(239, 68, 68, 0.15)';
+            if (icon) {
+                icon.setAttribute('data-lucide', 'x-circle');
+                icon.style.color = '#ef4444';
+            }
+            if (title) title.textContent = 'Rechazar Evidencia';
+            if (subtitle) subtitle.textContent = 'Indica el motivo del rechazo para informar al aprendiz.';
+            if (input) input.value = 'Evidencia Rechazada';
+            if (confirmBtn) {
+                confirmBtn.style.background = '#ef4444';
+                confirmBtn.innerHTML = `<i data-lucide="x" style="width: 16px; height: 16px;"></i> Rechazar Evidencia`;
+            }
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+        modal.style.display = 'flex';
+
+        window._replyModalResolve = resolve;
+    });
+}
+
+function closeReplyModal(confirmed) {
+    const modal = document.getElementById('modalRespuestaEvidencia');
+    if (modal) modal.style.display = 'none';
+    if (window._replyModalResolve) {
+        if (confirmed) {
+            const inputVal = document.getElementById('replyModalInput')?.value.trim();
+            window._replyModalResolve(inputVal || 'Respuesta enviada');
+        } else {
+            window._replyModalResolve(null);
+        }
+        window._replyModalResolve = null;
+    }
+}
+
 async function updateEvidenceStatus(id, newStatus) {
     const isApprove = newStatus === 'Aprobada';
-    const replyNotes = prompt(
-        isApprove 
-            ? '¿Deseas agregar una nota u observación de respuesta al aprendiz? (Opcional)' 
-            : 'Por favor indica el motivo por el cual rechazas esta evidencia (Opcional):', 
-        isApprove ? 'Excusa Aprobada' : 'Evidencia Rechazada'
-    );
-    
-    // Si presiona Cancelar en el prompt
+    const replyNotes = await showReplyModal(isApprove);
+
+    // Si presiona Cancelar en el modal
     if (replyNotes === null) return;
 
     try {
