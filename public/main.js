@@ -305,12 +305,16 @@ async function renderTable(fichaFilter = currentFichaFilter) {
 
             list.innerHTML = data.map((s, index) => {
                 const rowNum = data.length - index;
+                const ambienteCell = (id === 'attendanceListToma') 
+                    ? `<td style="white-space: nowrap;"><span style="font-size: 0.78rem; font-weight: 700; color: #009900; background: #f0fdf4; padding: 4px 10px; border-radius: 8px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="map-pin" style="width: 12px; height: 12px;"></i> ${s.ambiente || 'Ambiente 302'}</span></td>`
+                    : '';
                 return `
                     <tr>
                         <td>${rowNum}</td>
                         <td>${s.name}</td>
                         <td>${s.docType || 'CC'}</td>
                         <td>${s.doc}</td>
+                        ${ambienteCell}
                         <td>${s.time || '--:--'}</td>
                         <td>
                             <span onclick="toggleStatus('${s.doc}', '${s.status}', '${encodeURIComponent(s.name)}', '${s.group}', '${s.docType}')" 
@@ -322,6 +326,8 @@ async function renderTable(fichaFilter = currentFichaFilter) {
                     </tr>
                 `;
             }).join('');
+
+            if (window.lucide) window.lucide.createIcons();
 
             const paginationId = id === 'attendanceList' ? 'paginationDash' : 'paginationToma';
             const pagContainer = document.getElementById(paginationId);
@@ -346,6 +352,24 @@ async function renderTable(fichaFilter = currentFichaFilter) {
     } catch (err) { console.error(err); }
 }
 
+function updateAmbienteVinculado() {
+    const sel = document.getElementById('ambienteSelectorToma');
+    if (!sel) return;
+    const val = sel.value;
+    localStorage.setItem('sena_ambiente_activo', val);
+
+    const inputFicha = document.getElementById('fichaAmbienteInput');
+    if (inputFicha) {
+        const fichaSel = document.getElementById('fichaSelectorToma')?.value || 'ADSO 3292060';
+        inputFicha.value = `Ficha ${fichaSel}`;
+    }
+
+    const badge = document.getElementById('ambienteStatusBadge');
+    if (badge) {
+        badge.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Lector Vinculado: ${val.split(' - ')[0]}`;
+    }
+}
+
 // Helper: fecha y hora exacta del momento
 function _getNow() {
     const now = new Date();
@@ -359,11 +383,13 @@ async function toggleStatus(doc, currentStatus, encodedName = '', group = '', do
     const name = encodedName ? decodeURIComponent(encodedName) : '';
     let newStatus = (currentStatus === 'Ausente' || !currentStatus) ? 'Presente' : (currentStatus === 'Presente' ? 'Tarde' : 'Ausente');
     const { fecha, hora, timestamp } = _getNow();
+    const ambiente = document.getElementById('ambienteSelectorToma')?.value || localStorage.getItem('sena_ambiente_activo') || 'Ambiente 302 - Software';
+
     try {
         const response = await fetch(`${API_BASE}/api/attendance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ doc: String(doc).trim(), status: newStatus, time: hora, fecha, timestamp, name, group, docType })
+            body: JSON.stringify({ doc: String(doc).trim(), status: newStatus, time: hora, fecha, timestamp, name, group, docType, ambiente })
         });
         if (response.ok) {
             await renderTable();
@@ -1586,6 +1612,7 @@ function clearSearchForm() {
 async function selectSearchResult(id, name, ficha, docType = '') {
     const { fecha, hora, timestamp } = _getNow();
     const resultsList = document.getElementById('searchResultsList');
+    const ambiente = document.getElementById('ambienteSelectorToma')?.value || localStorage.getItem('sena_ambiente_activo') || 'Ambiente 302 - Software';
 
     try {
         const res = await fetch(`${API_BASE}/api/attendance`, {
@@ -1599,7 +1626,8 @@ async function selectSearchResult(id, name, ficha, docType = '') {
                 status:  'Presente',
                 time:    hora,
                 fecha,
-                timestamp
+                timestamp,
+                ambiente
             })
         });
 
