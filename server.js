@@ -309,6 +309,13 @@ app.put('/api/attendance/:doc', (req, res) => {
     res.json({ success: true });
 });
 
+const AMBIENTE_POR_FICHA = {
+    '3292060': 'Ambiente 302 - Software',
+    '2558390': 'Ambiente 104 - Redes',
+    '2459100': 'Ambiente 201 - Autotrónica',
+    '2671200': 'Ambiente 405 - Multimedia'
+};
+
 app.post('/api/attendance', (req, res) => {
     const now = new Date();
     const time = req.body.time || now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -319,6 +326,24 @@ app.post('/api/attendance', (req, res) => {
     
     const reqCleanDoc = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
     const reqGroup    = String(req.body.group || '').trim();
+    const reqAmbiente = String(req.body.ambiente || '').trim();
+    const reqGroupClean = (reqGroup || '3292060').replace(/\D/g, '');
+    const assignedAmbiente = AMBIENTE_POR_FICHA[reqGroupClean] || 'Ambiente 302 - Software';
+
+    // Validación de Rechazo por Ambiente No Asignado
+    if (req.body.enforceAmbiente !== false && reqAmbiente && assignedAmbiente) {
+        const normReq = reqAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normAssigned = assignedAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        if (!normReq.includes(normAssigned.slice(0, 11)) && !normAssigned.includes(normReq.slice(0, 11))) {
+            return res.status(400).json({ 
+                error: `⛔ REGISTRO RECHAZADO: La marcación se realizó desde un ambiente no asignado (${reqAmbiente}). El ambiente asignado para la ficha ${reqGroup || '3292060'} es: ${assignedAmbiente}.`, 
+                rejected: true, 
+                assignedAmbiente: assignedAmbiente,
+                requestAmbiente: reqAmbiente 
+            });
+        }
+    }
 
     const existingIndex = data.findIndex(r => {
         const rCleanDoc = String(r.doc || '').replace(/\D/g, '').replace(/^0+/, '');

@@ -384,15 +384,28 @@ async function toggleStatus(doc, currentStatus, encodedName = '', group = '', do
     let newStatus = (currentStatus === 'Ausente' || !currentStatus) ? 'Presente' : (currentStatus === 'Presente' ? 'Tarde' : 'Ausente');
     const { fecha, hora, timestamp } = _getNow();
     const ambiente = document.getElementById('ambienteSelectorToma')?.value || localStorage.getItem('sena_ambiente_activo') || 'Ambiente 302 - Software';
+    const enforceAmbiente = document.getElementById('checkEnforceAmbiente')?.checked !== false;
 
     try {
         const response = await fetch(`${API_BASE}/api/attendance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ doc: String(doc).trim(), status: newStatus, time: hora, fecha, timestamp, name, group, docType, ambiente })
+            body: JSON.stringify({ doc: String(doc).trim(), status: newStatus, time: hora, fecha, timestamp, name, group, docType, ambiente, enforceAmbiente })
         });
         if (response.ok) {
             await renderTable();
+        } else {
+            const errData = await response.json();
+            await showConfirmModal({
+                title: '⛔ Marcación Rechazada',
+                message: errData.error || 'No se permite registrar la asistencia desde un ambiente no asignado a esta ficha.',
+                confirmText: 'Entendido',
+                cancelText: '',
+                confirmBg: '#ef4444',
+                iconName: 'shield-off',
+                iconBg: 'rgba(239, 68, 68, 0.15)',
+                iconColor: '#ef4444'
+            });
         }
     } catch (err) { console.error(err); }
 }
@@ -1609,10 +1622,19 @@ function clearSearchForm() {
     if (resList) resList.innerHTML = '';
 }
 
+function toggleEnforceAmbiente(checked) {
+    const label = document.getElementById('labelEnforceAmbiente');
+    if (label) {
+        label.textContent = checked ? 'Activado (Rechazo Activo)' : 'Desactivado (Permisivo)';
+        label.style.color = checked ? '#009900' : '#64748b';
+    }
+}
+
 async function selectSearchResult(id, name, ficha, docType = '') {
     const { fecha, hora, timestamp } = _getNow();
     const resultsList = document.getElementById('searchResultsList');
     const ambiente = document.getElementById('ambienteSelectorToma')?.value || localStorage.getItem('sena_ambiente_activo') || 'Ambiente 302 - Software';
+    const enforceAmbiente = document.getElementById('checkEnforceAmbiente')?.checked !== false;
 
     try {
         const res = await fetch(`${API_BASE}/api/attendance`, {
@@ -1627,12 +1649,12 @@ async function selectSearchResult(id, name, ficha, docType = '') {
                 time:    hora,
                 fecha,
                 timestamp,
-                ambiente
+                ambiente,
+                enforceAmbiente
             })
         });
 
         if (res.ok) {
-            // Actualizar la tabla de asistencias inmediatamente
             await renderTable();
 
             if (resultsList) {
@@ -1642,7 +1664,7 @@ async function selectSearchResult(id, name, ficha, docType = '') {
                             <div class="result-name" style="color:#009900;">✓ Asistencia registrada: ${name}</div>
                             <div class="result-details">
                                 Doc: ${id} · Ficha: ${ficha || 'General'}<br>
-                                📅 ${fecha} &nbsp; 🕐 ${hora}
+                                📍 ${ambiente} · 📅 ${fecha} &nbsp; 🕐 ${hora}
                             </div>
                         </div>
                     </div>
@@ -1653,7 +1675,17 @@ async function selectSearchResult(id, name, ficha, docType = '') {
                 clearSearchForm();
             }, 1000);
         } else {
-            alert('Error al registrar la asistencia. Intenta de nuevo.');
+            const errData = await res.json();
+            await showConfirmModal({
+                title: '⛔ Marcación Rechazada',
+                message: errData.error || 'No se permite registrar la asistencia desde un ambiente no asignado a esta ficha.',
+                confirmText: 'Entendido',
+                cancelText: '',
+                confirmBg: '#ef4444',
+                iconName: 'shield-off',
+                iconBg: 'rgba(239, 68, 68, 0.15)',
+                iconColor: '#ef4444'
+            });
         }
     } catch (err) {
         console.error(err);
