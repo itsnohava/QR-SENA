@@ -460,7 +460,7 @@ app.post('/api/send-email', async (req, res) => {
             });
 
             await transporter.sendMail({
-                from: '"SENA AsistQR" <notificaciones@sena.edu.co>',
+                from: '"SENA Asist" <notificaciones@sena.edu.co>',
                 to,
                 subject,
                 text: body,
@@ -468,7 +468,7 @@ app.post('/api/send-email', async (req, res) => {
                         <h2 style="color: #009900; margin-top:0;">SENA - Control de Asistencia</h2>
                         <p style="white-space: pre-line; color: #334155; font-size: 14px; line-height: 1.6;">${body}</p>
                         <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 25px;" />
-                        <span style="font-size: 11px; color: #94a3b8;">Mensaje automático enviado desde la plataforma AsistQR SENA.</span>
+                        <span style="font-size: 11px; color: #94a3b8;">Mensaje automático enviado desde la plataforma SENA Asist.</span>
                        </div>`
             }).catch(() => {});
         } catch (_) {}
