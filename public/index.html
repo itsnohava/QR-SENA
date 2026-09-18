@@ -107,10 +107,15 @@
         </div>
     </aside>
     <main class="main-container">
-        <header>
-            <div class="user-profile" onclick="openProfileView()" style="cursor: pointer;" title="Ver mi perfil">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Perfil Usuario" class="avatar" style="background: #dcfce7; padding: 4px; object-fit: contain;">
-                <span style="font-weight: 600;" id="headerUserName">Juan Pérez</span>
+        <header style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button id="mobileMenuToggle" onclick="toggleMobileSidebar()" class="mobile-menu-btn" title="Abrir Menú">
+                    <i data-lucide="menu" style="width: 22px; height: 22px; color: #1e293b;"></i>
+                </button>
+                <div class="user-profile" onclick="openProfileView()" style="cursor: pointer;" title="Ver mi perfil">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Perfil Usuario" class="avatar" style="background: #dcfce7; padding: 4px; object-fit: contain;">
+                    <span style="font-weight: 600;" id="headerUserName">Juan Pérez</span>
+                </div>
             </div>
             <div class="header-actions">
                 <button onclick="sessionStorage.clear(); window.location.href='login.html';" title="Cerrar sesión" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; color: #ef4444; transition: background 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='none'">

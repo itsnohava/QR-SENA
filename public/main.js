@@ -7,6 +7,48 @@ const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' 
 let currentFichaFilter = '';
 let globalChartInstance = null;
 
+function toggleMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    let backdrop = document.getElementById('sidebarBackdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'sidebarBackdrop';
+        backdrop.style.position = 'fixed';
+        backdrop.style.inset = '0';
+        backdrop.style.background = 'rgba(0,0,0,0.5)';
+        backdrop.style.zIndex = '998';
+        backdrop.style.display = 'none';
+        backdrop.onclick = closeMobileSidebar;
+        document.body.appendChild(backdrop);
+    }
+
+    if (sidebar) {
+        sidebar.classList.toggle('active');
+        if (sidebar.classList.contains('active')) {
+            backdrop.style.display = 'block';
+        } else {
+            backdrop.style.display = 'none';
+        }
+    }
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sidebar) sidebar.classList.remove('active');
+    if (backdrop) backdrop.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 900) {
+                closeMobileSidebar();
+            }
+        });
+    });
+});
+
 function initUserProfile() {
     const name = sessionStorage.getItem('sena_name') || 'Juan Pérez';
     const role = sessionStorage.getItem('sena_role') || 'INSTRUCTOR';
