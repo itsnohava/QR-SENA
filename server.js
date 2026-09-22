@@ -324,11 +324,24 @@ app.post('/api/attendance', (req, res) => {
     
     const data = JSON.parse(fs.readFileSync(DATA_FILE));
     
-    const reqCleanDoc = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
-    const reqGroup    = String(req.body.group || '').trim();
-    const reqAmbiente = String(req.body.ambiente || '').trim();
+    const reqCleanDoc   = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+    const reqGroup      = String(req.body.group || '').trim();
+    const expectedGroup = String(req.body.expectedGroup || '').trim();
+    const reqAmbiente   = String(req.body.ambiente || '').trim();
     const reqGroupClean = (reqGroup || '3292060').replace(/\D/g, '');
     const assignedAmbiente = AMBIENTE_POR_FICHA[reqGroupClean] || 'Ambiente 302 - Software';
+
+    // Validación de Rechazo por Ficha Incorrecta
+    if (req.body.enforceFicha !== false && expectedGroup && reqGroup) {
+        const cleanReq = reqGroup.replace(/\D/g, '');
+        const cleanExp = expectedGroup.replace(/\D/g, '');
+        if (cleanReq && cleanExp && cleanReq !== cleanExp) {
+            return res.status(400).json({
+                error: `⚠️ ALERTA DE FICHA INCORRECTA: El aprendiz (Doc: ${req.body.doc}) pertenece a la Ficha ${reqGroup} y no a la Ficha ${expectedGroup} seleccionada.`,
+                rejected: true
+            });
+        }
+    }
 
     // Validación de Rechazo por Ambiente No Asignado
     if (req.body.enforceAmbiente !== false && reqAmbiente && assignedAmbiente) {

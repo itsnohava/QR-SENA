@@ -523,20 +523,36 @@
 
                         <div>
                             <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">
-                                Ficha / Programa Asignado
+                                Ficha Activa en Toma de Asistencia *
                             </label>
-                            <input type="text" id="fichaAmbienteInput" readonly value="Ficha ADSO 3292060" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; background: #f8fafc; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                            <select id="fichaSelectorToma" onchange="updateAmbienteVinculado()" style="width: 100%; padding: 10px 14px; border: 1.5px solid #009900; border-radius: 10px; font-weight: 600; color: #1e293b; background: #ffffff; outline: none; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 4px rgba(0,153,0,0.06);">
+                                <option value="3292060">Ficha 3292060 - ADSO (Análisis y Desarrollo de Software)</option>
+                                <option value="2558390">Ficha 2558390 - Redes e Infraestructura</option>
+                                <option value="2459100">Ficha 2459100 - Mantenimiento y Mecatrónica</option>
+                                <option value="2671200">Ficha 2671200 - Producción Multimedia</option>
+                            </select>
                         </div>
                     </div>
 
                     <div style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed #bbf7d0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="shield-alert" style="color: #ef4444; width: 18px; height: 18px;"></i>
-                            <span style="font-size: 0.84rem; font-weight: 600; color: #1e293b;">Control de Seguridad: Rechazar marcaciones desde ambientes no asignados</span>
+                            <span style="font-size: 0.84rem; font-weight: 600; color: #1e293b;">Control de Ambiente: Rechazar marcaciones desde ambientes no asignados</span>
                         </div>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 700; color: #009900;">
                             <input type="checkbox" id="checkEnforceAmbiente" checked onchange="toggleEnforceAmbiente(this.checked)" style="width: 18px; height: 18px; accent-color: #009900; cursor: pointer;">
                             <span id="labelEnforceAmbiente" style="color: #009900;">Activado (Rechazo Activo)</span>
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #bbf7d0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="user-x" style="color: #ef4444; width: 18px; height: 18px;"></i>
+                            <span style="font-size: 0.84rem; font-weight: 600; color: #1e293b;">Control de Ficha: Alertar si el aprendiz intenta registrar en otra ficha</span>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 700; color: #009900;">
+                            <input type="checkbox" id="checkEnforceFicha" checked onchange="toggleEnforceFicha(this.checked)" style="width: 18px; height: 18px; accent-color: #009900; cursor: pointer;">
+                            <span id="labelEnforceFicha" style="color: #009900;">Activado (Bloquear Ficha Incorrecta)</span>
                         </label>
                     </div>
                 </section>

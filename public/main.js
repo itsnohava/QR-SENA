@@ -1491,37 +1491,75 @@ function _autoFillFields(student) {
         }
     }
 
+    // Verificar si la ficha del aprendiz coincide con la Ficha activa seleccionada en la Toma de Asistencia
+    const activeFicha = document.getElementById('fichaSelectorToma')?.value || '';
+    const checkEnforceFicha = document.getElementById('checkEnforceFicha')?.checked !== false;
+
+    const studentFicha = String(student.ficha || student.group || '').trim();
+    const studentFichaClean = studentFicha.replace(/\D/g, '');
+    const activeFichaClean  = activeFicha.replace(/\D/g, '');
+
+    const isFichaMismatch = checkEnforceFicha && activeFichaClean && studentFichaClean && (studentFichaClean !== activeFichaClean);
+
     // Mostrar tarjeta de confirmación del aprendiz encontrado
     const resultsContainer = document.getElementById('searchResults');
     const resultsList      = document.getElementById('searchResultsList');
     if (resultsContainer && resultsList) {
         resultsContainer.style.display = 'block';
-        resultsList.innerHTML = `
-            <div class="search-result-item" style="border-left-color: #009900; background: #f0fdf4; padding: 14px 18px; border-radius: 12px;">
-                <div class="result-info">
-                    <div class="result-name" style="color: #009900; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
-                        <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
-                        ${student.name}
+
+        if (isFichaMismatch) {
+            resultsList.innerHTML = `
+                <div class="search-result-item" style="border-left-color: #ef4444; background: #fef2f2; padding: 16px 20px; border-radius: 14px; border: 1.5px solid #fca5a5;">
+                    <div class="result-info">
+                        <div class="result-name" style="color: #ef4444; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="alert-triangle" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                            ⚠️ ALERTA DE FICHA INCORRECTA
+                        </div>
+                        <div class="result-details" style="margin-top: 6px; font-size: 0.9rem; color: #7f1d1d; line-height: 1.5;">
+                            El aprendiz <strong>${student.name}</strong> (Doc: ${student.id}) pertenece a la <strong>Ficha ${studentFicha}</strong>.<br>
+                            <span style="font-weight: 700; color: #b91c1c;">La Toma de Asistencia activa está seleccionada para la Ficha ${activeFicha}.</span>
+                        </div>
                     </div>
-                    <div class="result-details" style="margin-top: 4px; font-size: 0.88rem; color: #334155;">
-                        ${student.docType || 'CC'}: <strong>${student.id}</strong>
-                        · Ficha: <strong>${student.ficha || student.group || 'General'}</strong>
-                        ${student.phone ? ' · Tel: ' + student.phone : ''}
+                    <div class="result-action" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
+                            onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${studentFicha}')">
+                            Ver Historial
+                        </button>
+                        <button type="button" class="btn-primary" style="background: #ef4444; font-size: 0.8rem; padding: 6px 16px; border-radius: 8px;"
+                            onclick="selectSearchResult('${student.id}', '${student.name}', '${studentFicha}', '${student.docType || 'CC'}', true)">
+                            Registrar de Todas Formas (Excepción)
+                        </button>
                     </div>
                 </div>
-                <div class="result-action" style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button type="button" class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
-                        onmouseover="this.style.color='#009900'; this.style.borderColor='#009900';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--text-muted)';"
-                        onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${student.ficha || student.group || ''}')">
-                        Ver Historial
-                    </button>
-                    <button type="button" class="btn-primary" style="background: #009900; font-size: 0.8rem; padding: 6px 16px;"
-                        onclick="selectSearchResult('${student.id}', '${student.name}', '${student.ficha || student.group || ''}', '${student.docType || 'CC'}')">
-                        Registrar Asistencia
-                    </button>
+            `;
+        } else {
+            resultsList.innerHTML = `
+                <div class="search-result-item" style="border-left-color: #009900; background: #f0fdf4; padding: 14px 18px; border-radius: 12px;">
+                    <div class="result-info">
+                        <div class="result-name" style="color: #009900; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                            ${student.name}
+                        </div>
+                        <div class="result-details" style="margin-top: 4px; font-size: 0.88rem; color: #334155;">
+                            ${student.docType || 'CC'}: <strong>${student.id}</strong>
+                            · Ficha: <strong>${studentFicha || 'General'}</strong>
+                            ${student.phone ? ' · Tel: ' + student.phone : ''}
+                        </div>
+                    </div>
+                    <div class="result-action" style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="button" class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
+                            onmouseover="this.style.color='#009900'; this.style.borderColor='#009900';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--text-muted)';"
+                            onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${studentFicha}')">
+                            Ver Historial
+                        </button>
+                        <button type="button" class="btn-primary" style="background: #009900; font-size: 0.8rem; padding: 6px 16px;"
+                            onclick="selectSearchResult('${student.id}', '${student.name}', '${studentFicha}', '${student.docType || 'CC'}')">
+                            Registrar Asistencia
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 }
@@ -1721,11 +1759,40 @@ function toggleEnforceAmbiente(checked) {
     }
 }
 
-async function selectSearchResult(id, name, ficha, docType = '') {
+function toggleEnforceFicha(checked) {
+    const label = document.getElementById('labelEnforceFicha');
+    if (label) {
+        label.textContent = checked ? 'Activado (Bloquear Ficha Incorrecta)' : 'Desactivado (Permisivo)';
+        label.style.color = checked ? '#009900' : '#64748b';
+    }
+}
+
+async function selectSearchResult(id, name, ficha, docType = '', allowBypass = false) {
     const { fecha, hora, timestamp } = _getNow();
     const resultsList = document.getElementById('searchResultsList');
     const ambiente = document.getElementById('ambienteSelectorToma')?.value || localStorage.getItem('sena_ambiente_activo') || 'Ambiente 302 - Software';
     const enforceAmbiente = document.getElementById('checkEnforceAmbiente')?.checked !== false;
+
+    const activeFicha = document.getElementById('fichaSelectorToma')?.value || '';
+    const checkEnforceFicha = document.getElementById('checkEnforceFicha')?.checked !== false;
+
+    const studentFichaClean = String(ficha || '').replace(/\D/g, '');
+    const activeFichaClean  = String(activeFicha || '').replace(/\D/g, '');
+
+    // Validación de Ficha Incorrecta
+    if (!allowBypass && checkEnforceFicha && activeFichaClean && studentFichaClean && (studentFichaClean !== activeFichaClean)) {
+        await showConfirmModal({
+            title: '⚠️ ALERTA DE FICHA INCORRECTA',
+            message: `El aprendiz <strong>${name}</strong> (Doc: ${id}) pertenece a la <strong>Ficha ${ficha || studentFichaClean}</strong>, pero la Toma de Asistencia activa está seleccionada para la <strong>Ficha ${activeFicha}</strong>.<br><br><span style="color:#ef4444; font-weight:700;">No pertenece al listado de la ficha activa en este momento.</span>`,
+            confirmText: 'Entendido',
+            cancelText: '',
+            confirmBg: '#ef4444',
+            iconName: 'alert-triangle',
+            iconBg: 'rgba(239, 68, 68, 0.15)',
+            iconColor: '#ef4444'
+        });
+        return;
+    }
 
     try {
         const res = await fetch(`${API_BASE}/api/attendance`, {
@@ -1733,11 +1800,13 @@ async function selectSearchResult(id, name, ficha, docType = '') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name,
-                doc:     id,
-                docType: docType || 'CC',
-                group:   ficha || '',
-                status:  'Presente',
-                time:    hora,
+                doc:           id,
+                docType:       docType || 'CC',
+                group:         ficha || '',
+                expectedGroup: activeFicha || '',
+                enforceFicha:  checkEnforceFicha,
+                status:        'Presente',
+                time:          hora,
                 fecha,
                 timestamp,
                 ambiente,
