@@ -1402,13 +1402,24 @@ async function _getAllStudents() {
     }
 }
 
+function _cleanDocId(str) {
+    if (!str) return '';
+    const s = String(str).trim();
+    // Extraer secuencias de dígitos (aplica para carnet, lector de barras o entrada manual)
+    const digitMatches = s.match(/\d{5,12}/g);
+    if (digitMatches && digitMatches.length > 0) {
+        return digitMatches[0];
+    }
+    return s.replace(/\D/g, '') || s.toLowerCase();
+}
+
 function autoSearchByDoc() {
     clearTimeout(_autoSearchTimer);
     const input = document.getElementById('searchDocNumber');
     if (!input) return;
-    const docNumber = input.value.trim();
+    const rawDoc = input.value.trim();
 
-    if (docNumber.length < 2) {
+    if (rawDoc.length < 2) {
         const res = document.getElementById('searchResults');
         if (res) res.style.display = 'none';
         _clearAutoFilledFields();
@@ -1416,7 +1427,37 @@ function autoSearchByDoc() {
     }
 
     _autoSearchTimer = setTimeout(async () => {
-        await searchStudent();
+        const students = await _getAllStudents();
+        const cleanScanned = _cleanDocId(rawDoc);
+
+        const match = students.find(s => {
+            if (s.status === 'Desertor') return false;
+            const cleanId = _cleanDocId(s.id);
+            return cleanId === cleanScanned || 
+                   (cleanScanned.length >= 4 && cleanId.includes(cleanScanned)) || 
+                   (cleanId.length >= 4 && cleanScanned.includes(cleanId)) ||
+                   (s.id || '').toLowerCase().includes(rawDoc.toLowerCase());
+        });
+
+        if (match) {
+            _autoFillFields(match);
+        } else {
+            _clearAutoFilledFields();
+            const resultsContainer = document.getElementById('searchResults');
+            const resultsList      = document.getElementById('searchResultsList');
+            if (resultsContainer && resultsList) {
+                resultsContainer.style.display = 'block';
+                resultsList.innerHTML = `
+                    <div class="search-result-item" style="border-left-color: #ef4444; background: #fef2f2;">
+                        <div class="result-info">
+                            <div class="result-name" style="color: #ef4444;">
+                                ⚠️ No se encontró ningún aprendiz registrado con el documento "${rawDoc}"
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
     }, 150);
 }
 
@@ -1427,9 +1468,12 @@ function _autoFillFields(student) {
 
     if (nameField) {
         nameField.value = student.name || '';
+        nameField.dataset.autofilled = 'true';
         nameField.style.borderColor = '#009900';
         nameField.style.boxShadow   = '0 0 0 3px rgba(0,153,0,0.15)';
         nameField.style.background  = '#f0fdf4';
+        nameField.style.fontWeight  = '700';
+        nameField.style.color       = '#009900';
     }
     if (docTypeField && student.docType) {
         docTypeField.value = student.docType;
@@ -1440,6 +1484,7 @@ function _autoFillFields(student) {
     if (phoneField) {
         phoneField.value = student.phone || '';
         if (student.phone) {
+            phoneField.dataset.autofilled = 'true';
             phoneField.style.borderColor = '#009900';
             phoneField.style.boxShadow   = '0 0 0 3px rgba(0,153,0,0.15)';
             phoneField.style.background  = '#f0fdf4';
@@ -1449,34 +1494,36 @@ function _autoFillFields(student) {
     // Mostrar tarjeta de confirmación del aprendiz encontrado
     const resultsContainer = document.getElementById('searchResults');
     const resultsList      = document.getElementById('searchResultsList');
-    resultsContainer.style.display = 'block';
-    resultsList.innerHTML = `
-        <div class="search-result-item" style="border-left-color: #009900; background: #f0fdf4;">
-            <div class="result-info">
-                <div class="result-name" style="color: #009900;">
-                    ✓ Aprendiz encontrado
+    if (resultsContainer && resultsList) {
+        resultsContainer.style.display = 'block';
+        resultsList.innerHTML = `
+            <div class="search-result-item" style="border-left-color: #009900; background: #f0fdf4; padding: 14px 18px; border-radius: 12px;">
+                <div class="result-info">
+                    <div class="result-name" style="color: #009900; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                        ${student.name}
+                    </div>
+                    <div class="result-details" style="margin-top: 4px; font-size: 0.88rem; color: #334155;">
+                        ${student.docType || 'CC'}: <strong>${student.id}</strong>
+                        · Ficha: <strong>${student.ficha || student.group || 'General'}</strong>
+                        ${student.phone ? ' · Tel: ' + student.phone : ''}
+                    </div>
                 </div>
-                <div class="result-details">
-                    ${student.docType ? student.docType + ': ' : ''}${student.id}
-                    · <strong>${student.name}</strong>
-                    · Ficha: ${student.ficha}
-                    ${student.phone ? ' · Tel: ' + student.phone : ''}
+                <div class="result-action" style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="button" class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
+                        onmouseover="this.style.color='#009900'; this.style.borderColor='#009900';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--text-muted)';"
+                        onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${student.ficha || student.group || ''}')">
+                        Ver Historial
+                    </button>
+                    <button type="button" class="btn-primary" style="background: #009900; font-size: 0.8rem; padding: 6px 16px;"
+                        onclick="selectSearchResult('${student.id}', '${student.name}', '${student.ficha || student.group || ''}', '${student.docType || 'CC'}')">
+                        Registrar Asistencia
+                    </button>
                 </div>
             </div>
-            <div class="result-action" style="display: flex; gap: 8px;">
-                <button class="btn-primary" style="background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); font-size: 0.8rem; padding: 6px 12px; transition: all 0.2s;"
-                    onmouseover="this.style.color='#009900'; this.style.borderColor='#009900';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--text-muted)';"
-                    onclick="showStudentHistoryModal('${student.id}', '${student.name}', '${student.ficha}')">
-                    Ver Historial
-                </button>
-                <button class="btn-primary" style="background: #009900; font-size: 0.8rem; padding: 6px 16px;"
-                    onclick="selectSearchResult('${student.id}', '${student.name}', '${student.ficha}', '${student.docType || ''}')">
-                    Registrar Asistencia
-                </button>
-            </div>
-        </div>
-    `;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
 }
 
 function _clearAutoFilledFields() {
@@ -1491,6 +1538,8 @@ function _clearAutoFilledFields() {
             el.style.borderColor = '';
             el.style.boxShadow   = '';
             el.style.background  = '';
+            el.style.fontWeight  = '';
+            el.style.color       = '';
         }
     });
     const docTypeField = document.getElementById('searchDocType');
@@ -1523,8 +1572,8 @@ async function searchStudent(event) {
             if (s.status === 'Desertor') return false;
             const cleanId = _cleanDocId(s.id);
             return cleanId === cleanScanned || 
-                   (cleanScanned.length >= 5 && cleanScanned.includes(cleanId)) || 
-                   (cleanId.length >= 5 && cleanId.includes(cleanScanned)) ||
+                   (cleanScanned.length >= 4 && cleanId.includes(cleanScanned)) || 
+                   (cleanId.length >= 4 && cleanScanned.includes(cleanId)) ||
                    (s.id || '').toLowerCase() === rawDoc.toLowerCase();
         });
 
