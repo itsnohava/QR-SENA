@@ -324,61 +324,21 @@ app.post('/api/attendance', (req, res) => {
     
     const data = JSON.parse(fs.readFileSync(DATA_FILE));
     
-    const reqCleanDoc   = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
-    const reqGroup      = String(req.body.group || '').trim();
-    const reqAmbiente   = String(req.body.ambiente || '').trim();
+    const reqCleanDoc = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+    const reqGroup    = String(req.body.group || '').trim();
+    const reqAmbiente = String(req.body.ambiente || '').trim();
     const reqGroupClean = (reqGroup || '3292060').replace(/\D/g, '');
     const assignedAmbiente = AMBIENTE_POR_FICHA[reqGroupClean] || 'Ambiente 302 - Software';
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // VALIDACIÓN 1: ¿El documento existe en el padrón de aprendices?
-    // ─────────────────────────────────────────────────────────────────────────
-    let studentRecord = null;
-    if (fs.existsSync(STUDENTS_FILE) && reqCleanDoc) {
-        try {
-            const students = JSON.parse(fs.readFileSync(STUDENTS_FILE));
-            studentRecord = students.find(s => {
-                const sClean = String(s.id || s.doc || '').replace(/\D/g, '').replace(/^0+/, '');
-                return sClean === reqCleanDoc;
-            });
-
-            if (!studentRecord) {
-                return res.status(403).json({
-                    error: `⛔ REGISTRO RECHAZADO: El documento "${req.body.doc}" no existe en el padrón de aprendices registrados en el sistema. Contacte a su instructor.`,
-                    rejected: true,
-                    reason: 'doc_not_found'
-                });
-            }
-        } catch (_) {}
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // VALIDACIÓN 2: ¿El aprendiz pertenece a la ficha indicada?
-    // ─────────────────────────────────────────────────────────────────────────
-    if (studentRecord && reqGroup) {
-        const studentGroupClean = String(studentRecord.group || '').replace(/\D/g, '');
-        if (studentGroupClean && studentGroupClean !== reqGroupClean) {
-            return res.status(403).json({
-                error: `⛔ REGISTRO RECHAZADO: El aprendiz "${studentRecord.name || req.body.name}" (Doc: ${req.body.doc}) pertenece a la ficha ${studentRecord.group}, no a la ficha ${reqGroup}. No puede registrar asistencia en una ficha que no le corresponde.`,
-                rejected: true,
-                reason: 'wrong_ficha',
-                fichaAprendiz: studentRecord.group,
-                fichaIntentada: reqGroup
-            });
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // VALIDACIÓN 3: ¿El ambiente de registro corresponde a la ficha?
-    // ─────────────────────────────────────────────────────────────────────────
+    // Validación de Rechazo por Ambiente No Asignado
     if (req.body.enforceAmbiente !== false && reqAmbiente && assignedAmbiente) {
-        const normReq      = reqAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normReq = reqAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normAssigned = assignedAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
         if (!normReq.includes(normAssigned.slice(0, 11)) && !normAssigned.includes(normReq.slice(0, 11))) {
             return res.status(400).json({ 
                 error: `⛔ REGISTRO RECHAZADO: La marcación se realizó desde un ambiente no asignado (${reqAmbiente}). El ambiente asignado para la ficha ${reqGroup || '3292060'} es: ${assignedAmbiente}.`, 
-                rejected: true,
-                reason: 'wrong_ambiente',
+                rejected: true, 
                 assignedAmbiente: assignedAmbiente,
                 requestAmbiente: reqAmbiente 
             });
@@ -500,7 +460,7 @@ app.post('/api/send-email', async (req, res) => {
             });
 
             await transporter.sendMail({
-                from: '"SENA Asist" <notificaciones@sena.edu.co>',
+                from: '"SAVENA" <notificaciones@sena.edu.co>',
                 to,
                 subject,
                 text: body,
@@ -508,7 +468,7 @@ app.post('/api/send-email', async (req, res) => {
                         <h2 style="color: #009900; margin-top:0;">SENA - Control de Asistencia</h2>
                         <p style="white-space: pre-line; color: #334155; font-size: 14px; line-height: 1.6;">${body}</p>
                         <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 25px;" />
-                        <span style="font-size: 11px; color: #94a3b8;">Mensaje automático enviado desde la plataforma SENA Asist.</span>
+                        <span style="font-size: 11px; color: #94a3b8;">Mensaje automático enviado desde la plataforma SAVENA.</span>
                        </div>`
             }).catch(() => {});
         } catch (_) {}
