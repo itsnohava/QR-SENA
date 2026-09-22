@@ -324,21 +324,61 @@ app.post('/api/attendance', (req, res) => {
     
     const data = JSON.parse(fs.readFileSync(DATA_FILE));
     
-    const reqCleanDoc = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
-    const reqGroup    = String(req.body.group || '').trim();
-    const reqAmbiente = String(req.body.ambiente || '').trim();
+    const reqCleanDoc   = String(req.body.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+    const reqGroup      = String(req.body.group || '').trim();
+    const reqAmbiente   = String(req.body.ambiente || '').trim();
     const reqGroupClean = (reqGroup || '3292060').replace(/\D/g, '');
     const assignedAmbiente = AMBIENTE_POR_FICHA[reqGroupClean] || 'Ambiente 302 - Software';
 
-    // Validación de Rechazo por Ambiente No Asignado
+    // ─────────────────────────────────────────────────────────────────────────
+    // VALIDACIÓN 1: ¿El documento existe en el padrón de aprendices?
+    // ─────────────────────────────────────────────────────────────────────────
+    let studentRecord = null;
+    if (fs.existsSync(STUDENTS_FILE) && reqCleanDoc) {
+        try {
+            const students = JSON.parse(fs.readFileSync(STUDENTS_FILE));
+            studentRecord = students.find(s => {
+                const sClean = String(s.id || s.doc || '').replace(/\D/g, '').replace(/^0+/, '');
+                return sClean === reqCleanDoc;
+            });
+
+            if (!studentRecord) {
+                return res.status(403).json({
+                    error: `⛔ REGISTRO RECHAZADO: El documento "${req.body.doc}" no existe en el padrón de aprendices registrados en el sistema. Contacte a su instructor.`,
+                    rejected: true,
+                    reason: 'doc_not_found'
+                });
+            }
+        } catch (_) {}
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VALIDACIÓN 2: ¿El aprendiz pertenece a la ficha indicada?
+    // ─────────────────────────────────────────────────────────────────────────
+    if (studentRecord && reqGroup) {
+        const studentGroupClean = String(studentRecord.group || '').replace(/\D/g, '');
+        if (studentGroupClean && studentGroupClean !== reqGroupClean) {
+            return res.status(403).json({
+                error: `⛔ REGISTRO RECHAZADO: El aprendiz "${studentRecord.name || req.body.name}" (Doc: ${req.body.doc}) pertenece a la ficha ${studentRecord.group}, no a la ficha ${reqGroup}. No puede registrar asistencia en una ficha que no le corresponde.`,
+                rejected: true,
+                reason: 'wrong_ficha',
+                fichaAprendiz: studentRecord.group,
+                fichaIntentada: reqGroup
+            });
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VALIDACIÓN 3: ¿El ambiente de registro corresponde a la ficha?
+    // ─────────────────────────────────────────────────────────────────────────
     if (req.body.enforceAmbiente !== false && reqAmbiente && assignedAmbiente) {
-        const normReq = reqAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normReq      = reqAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normAssigned = assignedAmbiente.toLowerCase().replace(/[^a-z0-9]/g, '');
-        
         if (!normReq.includes(normAssigned.slice(0, 11)) && !normAssigned.includes(normReq.slice(0, 11))) {
             return res.status(400).json({ 
                 error: `⛔ REGISTRO RECHAZADO: La marcación se realizó desde un ambiente no asignado (${reqAmbiente}). El ambiente asignado para la ficha ${reqGroup || '3292060'} es: ${assignedAmbiente}.`, 
-                rejected: true, 
+                rejected: true,
+                reason: 'wrong_ambiente',
                 assignedAmbiente: assignedAmbiente,
                 requestAmbiente: reqAmbiente 
             });
